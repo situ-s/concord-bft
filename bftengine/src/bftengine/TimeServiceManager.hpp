@@ -73,7 +73,6 @@ class TimeServiceManager {
     const auto& config = ReplicaConfig::instance();
     const auto now = std::chrono::duration_cast<ConsensusTime>(ClockT::now().time_since_epoch());
     const auto& serialized = concord::util::serialize(now);
-    const auto now = std::chrono::duration_cast<ConsensusTime>(ClockT::now().time_since_epoch());
     LOG_WARN(TS_MNGR, "SS--- time insert in client request (Primary time)" << now.count());
     return std::make_unique<impl::ClientRequestMsg>(config.replicaId,
                                                     MsgFlag::TIME_SERVICE_FLAG,
