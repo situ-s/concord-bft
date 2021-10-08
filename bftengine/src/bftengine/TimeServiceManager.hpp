@@ -73,6 +73,8 @@ class TimeServiceManager {
     const auto& config = ReplicaConfig::instance();
     const auto now = std::chrono::duration_cast<ConsensusTime>(ClockT::now().time_since_epoch());
     const auto& serialized = concord::util::serialize(now);
+    const auto now = std::chrono::duration_cast<ConsensusTime>(ClockT::now().time_since_epoch());
+    LOG_WARN(TS_MNGR, "SS--- time insert in client request (Primary time)" << now.count());
     return std::make_unique<impl::ClientRequestMsg>(config.replicaId,
                                                     MsgFlag::TIME_SERVICE_FLAG,
                                                     0U,
@@ -105,7 +107,8 @@ class TimeServiceManager {
 
   [[nodiscard]] bool isPrimarysTimeWithinBounds(const impl::PrePrepareMsg& msg) const {
     ConcordAssertGE(msg.numberOfRequests(), 1);
-
+    const auto now = std::chrono::duration_cast<ConsensusTime>(ClockT::now().time_since_epoch());
+    LOG_WARN(TS_MNGR, "SS--- received prepare time" << now.count());
     auto it = impl::RequestsIterator(&msg);
     char* requestBody = nullptr;
     ConcordAssertEQ(it.getCurrent(requestBody), true);
@@ -123,6 +126,11 @@ class TimeServiceManager {
     const auto& config = ReplicaConfig::instance();
     auto min = now - config.timeServiceHardLimitMillis;
     auto max = now + config.timeServiceHardLimitMillis;
+    LOG_WARN(TS_MNGR,
+             "Current times"
+                 << "Primary's time: " << t.count() << ", local time: " << now.count()
+                 << ", difference: " << (t - now).count() << ", time limits: +/-"
+                 << config.timeServiceHardLimitMillis.count() << ". Time is presented as ms since epoch");
     if (min > t || t > max) {
       LOG_ERROR(TS_MNGR,
                 "Current primary's time reached hard limit, requests will be ignored. Please synchronize local clocks! "

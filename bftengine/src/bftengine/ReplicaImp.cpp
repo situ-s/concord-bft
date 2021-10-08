@@ -830,7 +830,13 @@ void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
         return;
       }
       if (msgSeqNum > maxSeqNumTransferredFromPrevViews /* not transferred from the previous view*/) {
+        const auto now = std::chrono::duration_cast<ConsensusTime>(std::chrono::system_clock::now().time_since_epoch());
+        LOG_WARN(TS_MNGR, "SS--- sending prepare msg to reps" << now.count());
         time_is_ok = time_service_manager_->isPrimarysTimeWithinBounds(*msg);
+        LOG_WARN(GL, "SS-- send message time_is_ok=" << time_is_ok);
+        const auto now2 =
+            std::chrono::duration_cast<ConsensusTime>(std::chrono::system_clock::now().time_since_epoch());
+        LOG_WARN(TS_MNGR, "SS--- sent prepare msg to reps" << now2.count());
       }
     }
     // For MDC it doesn't matter which type of fast path
