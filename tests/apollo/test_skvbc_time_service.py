@@ -308,7 +308,6 @@ class SkvbcTimeServiceTest(unittest.TestCase):
 
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
-    @verify_linearizability()
     async def test_delay_with_soft_limit_reached_counter(self, bft_network, tracker):
         """
         1. Start all replicas except a non-primary
