@@ -80,22 +80,24 @@ class SkvbcStateTransferTest(unittest.TestCase):
         expected. We should be able to stop a different set of f nodes after
         state transfer completes and still operate correctly.
         """
-        skvbc = kvbc.SimpleKVBCProtocol(bft_network)
+        with log.start_action(action_type="get_stalenode") as action:
+            skvbc = kvbc.SimpleKVBCProtocol(bft_network)
 
-        stale_node = random.choice(
-            bft_network.all_replicas(without={0}))
+            stale_node = random.choice(
+                bft_network.all_replicas(without={0}))
 
-        await skvbc.start_replicas_and_write_with_multiple_clients(
-            stale_nodes={stale_node},
-            write_run_duration=30,
-            persistency_enabled=False
-        )
-        bft_network.start_replica(stale_node)
-        await bft_network.wait_for_state_transfer_to_start()
-        await bft_network.wait_for_state_transfer_to_stop(0, stale_node)
-        await skvbc.assert_successful_put_get()
-        await bft_network.force_quorum_including_replica(stale_node)
-        await skvbc.assert_successful_put_get()
+            action.log(message_type=f'stale node #{stale_node}')
+            await skvbc.start_replicas_and_write_with_multiple_clients(
+                stale_nodes={stale_node},
+                write_run_duration=30,
+                persistency_enabled=False
+            )
+            bft_network.start_replica(stale_node)
+            await bft_network.wait_for_state_transfer_to_start()
+            await bft_network.wait_for_state_transfer_to_stop(0, stale_node)
+            await skvbc.assert_successful_put_get()
+            await bft_network.force_quorum_including_replica(stale_node)
+            await skvbc.assert_successful_put_get()
 
     @skip_for_tls
     @with_trio
