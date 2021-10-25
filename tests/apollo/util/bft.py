@@ -365,8 +365,8 @@ class BftTestNetwork:
 
                 os.makedirs(self.test_dir, exist_ok=True)
 
-                stdout_file = open(test_log, 'w+')
-                stderr_file = open(test_log, 'w+')
+                stdout_file = open(test_log, 'a+')
+                stderr_file = open(test_log, 'a+')
 
                 stdout_file.write("############################################\n")
                 stdout_file.flush()
