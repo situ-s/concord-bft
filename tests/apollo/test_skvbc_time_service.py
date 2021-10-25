@@ -308,7 +308,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
 
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
-    async def test_delay_with_soft_limit_reached_counter(self, bft_network, tracker):
+    async def test_delay_with_soft_limit_reached_counter(self, bft_network):
         """
         1. Start all replicas except a non-primary
         2. Expected result: The cluster should work in slow path
@@ -319,7 +319,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         """
 
         initial_primary = 0
-        skvbc = kvbc.SimpleKVBCProtocol(bft_network, tracker)
+        skvbc = kvbc.SimpleKVBCProtocol(bft_network)
         non_primary_replica = random.choice(
             bft_network.all_replicas(without={initial_primary}))
 
