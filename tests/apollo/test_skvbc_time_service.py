@@ -306,6 +306,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         await bft_network.wait_for_fast_path_to_be_prevalent(
         run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20)
 
+    @unittest.skip("Unstable scenerio")
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_delay_with_soft_limit_reached_counter(self, bft_network):
