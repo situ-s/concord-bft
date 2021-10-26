@@ -105,7 +105,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         await self.manipulate_time_file_write(path, CLOCK_NO_DRIFT)
 
         await bft_network.wait_for_fast_path_to_be_prevalent(
-            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20)
+            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20) 
 
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
@@ -151,7 +151,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         await self.manipulate_time_file_write(path, CLOCK_NO_DRIFT)
 
         await bft_network.wait_for_fast_path_to_be_prevalent(
-            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20)
+            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20) 
 
     @with_trio
     @with_bft_network(start_replica_cmd_without_time_service('0') , rotate_keys=True)
@@ -190,7 +190,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         await self.manipulate_time_file_write(path, CLOCK_NO_DRIFT)
 
         await bft_network.wait_for_fast_path_to_be_prevalent(
-            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20)
+            run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20) 
 
     @with_trio
     @with_bft_network(start_replica_cmd_without_time_service('0'), rotate_keys=True)
