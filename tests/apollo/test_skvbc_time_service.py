@@ -316,6 +316,7 @@ class SkvbcTimeServiceTest(unittest.TestCase):
         4. Start the stopped non-primary replica
         5. Expected result: Increment in soft_limit_reached_counter
         6. Remove the delay from network
+        7. Expected result: The cluster should work in fast path
         """
 
         initial_primary = 0
@@ -340,6 +341,9 @@ class SkvbcTimeServiceTest(unittest.TestCase):
                 action.log(
                         message_type=f'soft_limit_reached_counter #{soft_limit_cnt}')
                 self.assertGreater(soft_limit_cnt, 0)
+        
+        await bft_network.wait_for_fast_path_to_be_prevalent(
+        run_ops=lambda: skvbc.run_concurrent_ops(num_ops=20, write_weight=1), threshold=20)
 
     @classmethod
     async def manipulate_time_file_write(self, path, data):
