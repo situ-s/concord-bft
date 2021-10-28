@@ -60,7 +60,7 @@ class SkvbcStateTransferTest(unittest.TestCase):
 
         await skvbc.start_replicas_and_write_with_multiple_clients(
             stale_nodes={stale_node},
-            write_run_duration=30,
+            write_run_duration=45,
             persistency_enabled=False
         )
         print("replicas started stale node=", stale_node)
