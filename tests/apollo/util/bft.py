@@ -1151,6 +1151,9 @@ class BftTestNetwork:
     async def wait_for_state_transfer_to_stop(self, up_to_date_node, stale_node, stop_on_stable_seq_num=False):
         with log.start_action(action_type="wait_for_state_transfer_to_stop", up_to_date_node=up_to_date_node, stale_node=stale_node, stop_on_stable_seq_num=stop_on_stable_seq_num):
             with trio.fail_after(30): # seconds
+
+                print("stale node:", stale_node)
+                print("upto date node:", up_to_date_node)
                 # Get the lastExecutedSeqNumber from a started node
                 if stop_on_stable_seq_num:
                     key = ['replica', 'Gauges', 'lastStableSeqNum']

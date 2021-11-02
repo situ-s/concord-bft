@@ -169,16 +169,20 @@ bool PartialProofsSet::addMsg(FullCommitProofMsg* m) {
   // FAST_WITH_THRESHOLD
   auto commitPath = CommitPath::FAST_WITH_THRESHOLD;
   if (myPCP) {
+    LOG_DEBUG(GL, "SS--MyPCP found");
     commitPath = myPCP->commitPath();
   } else {
     // TODO(GG): can be improved (we can keep the FullCommitProof  message until myPCP!=nullptr
+    LOG_DEBUG(GL, "SS--1 in else");
     LOG_WARN(GL, "FullCommitProofMsg arrived before PrePrepare. TODO(GG): should be handled to avoid delays. ");
 
     if (prePrepare_ == nullptr) {
+      LOG_DEBUG(GL, "SS-- prePrepare is null");
       LOG_WARN(GL, "There is no corresponding PrePrepare for FullCommitProofMsg");
       return false;
     }
 
+    LOG_DEBUG(GL, "SS-- No return");
     LOG_DEBUG(GL,
               "This replica does not have self PCP (did not participate in consensus), using: "
                   << CommitPathToStr(CommitPath::FAST_WITH_THRESHOLD));
