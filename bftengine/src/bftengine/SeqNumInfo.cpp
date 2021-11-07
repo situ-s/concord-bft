@@ -92,6 +92,7 @@ bool SeqNumInfo::addMsg(PrePrepareMsg* m, bool directAdd, bool isTimeCorrect) {
   if (firstSeenFromPrimary == MinTime)  // TODO(GG): remove condition - TBD
     firstSeenFromPrimary = getMonotonicTime();
 
+  partialProofsSet->addMsg(&prePrepareMsg, tmpDigest);
   return true;
 }
 
@@ -118,6 +119,7 @@ bool SeqNumInfo::addSelfMsg(PrePrepareMsg* m, bool directAdd) {
   if (firstSeenFromPrimary == MinTime)  // TODO(GG): remove condition - TBD
     firstSeenFromPrimary = getMonotonicTime();
 
+  partialProofsSet->addMsg(&prePrepareMsg, tmpDigest);
   return true;
 }
 
