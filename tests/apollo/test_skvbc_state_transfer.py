@@ -82,8 +82,7 @@ class SkvbcStateTransferTest(unittest.TestCase):
         """
         skvbc = kvbc.SimpleKVBCProtocol(bft_network)
 
-        stale_node = random.choice(
-            bft_network.all_replicas(without={0}))
+        stale_node = 1
 
         await skvbc.start_replicas_and_write_with_multiple_clients(
             stale_nodes={stale_node},
