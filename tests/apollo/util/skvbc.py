@@ -119,15 +119,16 @@ class SimpleKVBCProtocol:
 
     @classmethod
     def parse_reply(cls, data):
-        (reply, offset) = skvbc_messages.SKVBCReply.deserialize(data)
-        if isinstance(reply.reply, skvbc_messages.SKVBCWriteReply):
-            return WriteReply(reply.reply.success, reply.reply.latest_block)
-        elif isinstance(reply.reply, skvbc_messages.SKVBCReadReply):
-            return dict(reply.reply.reads)
-        elif isinstance(reply.reply, skvbc_messages.SKVBCGetLastBlockReply):
-            return reply.reply.latest_block
-        else:
-            raise BadReplyError
+        if data[0] != b'':
+            (reply, offset) = skvbc_messages.SKVBCReply.deserialize(data[0])
+            if isinstance(reply.reply, skvbc_messages.SKVBCWriteReply):
+                return WriteReply(reply.reply.success, reply.reply.latest_block)
+            elif isinstance(reply.reply, skvbc_messages.SKVBCReadReply):
+                return dict(reply.reply.reads)
+            elif isinstance(reply.reply, skvbc_messages.SKVBCGetLastBlockReply):
+                return reply.reply.latest_block
+            else:
+                raise BadReplyError
 
     def initial_state(self):
         """

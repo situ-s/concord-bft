@@ -80,6 +80,7 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
                                       std::optional<bftEngine::Timestamp> timestamp,
                                       const std::string &batchCid,
                                       concordUtils::SpanWrapper &parent_span) {
+  LOG_ERROR(m_logger, "SS-- in InternalCommandsHandler::execute");
   if (requests.empty()) return;
   if (requests.back().flags & bftEngine::DB_CHECKPOINT_FLAG) return;
 
@@ -250,6 +251,7 @@ OperationResult InternalCommandsHandler::verifyWriteCommand(uint32_t requestSize
                                                             size_t maxReplySize,
                                                             uint32_t &outReplySize) const {
   SKVBCRequest deserialized_request;
+  LOG_ERROR(m_logger, "SS-- In verify write command");
   try {
     deserialize(request, request + requestSize, deserialized_request);
   } catch (const runtime_error &e) {
@@ -330,8 +332,10 @@ OperationResult InternalCommandsHandler::executeWriteCommand(uint32_t requestSiz
   const uint8_t *request_buffer_as_uint8 = reinterpret_cast<const uint8_t *>(request);
   if (!(flags & MsgFlag::HAS_PRE_PROCESSED_FLAG)) {
     if (verifyWriteCommand(requestSize, request_buffer_as_uint8, maxReplySize, outReplySize) !=
-        OperationResult::SUCCESS)
+        OperationResult::SUCCESS) {
+      LOG_INFO(GL, "SS-- in execute right, operation result is not success");
       ConcordAssert(0);
+    }
     if (flags & MsgFlag::PRE_PROCESS_FLAG) {
       SKVBCRequest deserialized_request;
       deserialize(request_buffer_as_uint8, request_buffer_as_uint8 + requestSize, deserialized_request);

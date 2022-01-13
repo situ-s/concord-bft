@@ -296,6 +296,7 @@ const std::string PrePrepareMsg::getBatchCorrelationIdAsString() const {
   char* requestBody = nullptr;
   while (it.getAndGoToNext(requestBody)) {
     ClientRequestMsg req(reinterpret_cast<ClientRequestMsgHeader*>(requestBody));
+    LOG_WARN(GL, "SS-- in getBatchCorrelationIdAsString Result###" << req.result());
     ret += req.getCid() + ";";
   }
   return ret;

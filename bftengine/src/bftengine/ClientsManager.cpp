@@ -184,7 +184,7 @@ std::unique_ptr<ClientReplyMsg> ClientsManager::allocateNewReplyMsgAndWriteToSto
               "More than maxNumOfReqsPerClient_ items in repliesInfo"
                   << KVLOG(c.repliesInfo.size(), maxNumOfReqsPerClient_, clientId, requestSeqNum, replyLength));
   }
-
+  LOG_WARN(CL_MNGR, "##################SS-- Result################ " << executionResult);
   c.repliesInfo.insert_or_assign(requestSeqNum, getMonotonicTime());
   LOG_DEBUG(CL_MNGR, KVLOG(clientId, requestSeqNum));
   auto r = std::make_unique<ClientReplyMsg>(myId_, requestSeqNum, reply, replyLength - rsiLength, executionResult);

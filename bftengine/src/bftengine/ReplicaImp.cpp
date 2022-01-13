@@ -358,10 +358,11 @@ std::function<bool(MessageBase *)> ReplicaImp::getMessageValidator() {
 
 void ReplicaImp::send(MessageBase *m, NodeIdType dest) {
   if (clientsManager->isInternal(dest)) {
-    LOG_DEBUG(GL, "Not sending reply to internal client id - " << dest);
+    LOG_INFO(GL, "Not sending reply to internal client id - " << dest);
     return;
   }
   TimeRecorder scoped_timer(*histograms_.send);
+  LOG_WARN(GL, "SS-- in send dest" << dest);
   ReplicaBase::send(m, dest);
 }
 
@@ -395,10 +396,13 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
   const bool readOnly = m->isReadOnly();
   const ReqId reqSeqNum = m->requestSeqNum();
   const uint64_t flags = m->flags();
+  uint32_t res = m->result();
 
   SCOPED_MDC_PRIMARY(std::to_string(currentPrimary()));
   SCOPED_MDC_CID(m->getCid());
-  LOG_DEBUG(CNSUS, KVLOG(clientId, reqSeqNum, senderId) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
+  LOG_WARN(CNSUS,
+           "SS-- in onmessage<crm> Result###" << res << KVLOG(clientId, reqSeqNum, senderId)
+                                              << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
 
   const auto &span_context = m->spanContext<std::remove_pointer<decltype(m)>::type>();
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_client_request");
@@ -412,7 +416,7 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
   // -  the public keys of the clients haven't been published yet.
   if (!KeyExchangeManager::instance().exchanged() || !KeyExchangeManager::instance().clientKeysPublished()) {
     if (!(flags & KEY_EXCHANGE_FLAG) && !(flags & CLIENTS_PUB_KEYS_FLAG)) {
-      LOG_INFO(KEY_EX_LOG, "Didn't complete yet, dropping msg");
+      LOG_INFO(KEY_EX_LOG, "SS--Didn't complete yet, dropping msg Result###" << res);
       delete m;
       return;
     }
@@ -434,6 +438,10 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
     std::ostringstream oss("ClientRequestMsg is invalid. ");
     oss << KVLOG(invalidClient, sentFromReplicaToNonPrimary);
     onReportAboutInvalidMessage(m, oss.str().c_str());
+    LOG_WARN(CNSUS,
+             "SS-- in onmessage<crm> Invalid message Result###"
+                 << res << KVLOG(clientId, reqSeqNum, senderId)
+                 << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
     delete m;
     return;
   }
@@ -446,6 +454,10 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
         deferredRORequestsMetric_++;
       }
     } else {
+      LOG_WARN(CNSUS,
+               "SS-- in onmessage<crm> call executereadonlyResult###"
+                   << res << KVLOG(clientId, reqSeqNum, senderId)
+                   << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
       executeReadOnlyRequest(span, m);
       delete m;
     }
@@ -478,7 +490,8 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
         return;
       }
       if (clientsManager->canBecomePending(clientId, reqSeqNum)) {
-        LOG_DEBUG(CNSUS, "Pushing to primary queue, request " << KVLOG(reqSeqNum, clientId, senderId));
+        LOG_WARN(CNSUS,
+                 "SS--Pushing to primary queue, request Result###" << res << KVLOG(reqSeqNum, clientId, senderId));
         if (time_to_collect_batch_ == MinTime) time_to_collect_batch_ = getMonotonicTime();
         requestsQueueOfPrimary.push(m);
         primaryCombinedReqSize += m->size();
@@ -503,6 +516,10 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
       }
       if (clientsManager->isPending(clientId, reqSeqNum)) {
         // As long as this request is not committed, we want to continue and alert the primary about it
+        LOG_WARN(CNSUS,
+                 "SS-- in onmessage<crm> send to current_primary Result###"
+                     << res << KVLOG(clientId, reqSeqNum, senderId)
+                     << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
         send(m, currentPrimary());
       } else {
         LOG_INFO(CNSUS,
@@ -512,10 +529,14 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
     }
   } else {  // Reply has already been sent to the client for this request
     auto repMsg = clientsManager->allocateReplyFromSavedOne(clientId, reqSeqNum, currentPrimary());
-    LOG_DEBUG(
-        CNSUS,
-        "ClientRequestMsg has already been executed: retransmitting reply to client." << KVLOG(reqSeqNum, clientId));
+    LOG_WARN(CNSUS,
+             "SS---ClientRequestMsg has already been executed: retransmitting reply to client."
+                 << KVLOG(reqSeqNum, clientId));
     if (repMsg) {
+      LOG_WARN(CNSUS,
+               "SS-- in onmessage<crm> send reply to clientt###"
+                   << res << KVLOG(clientId, reqSeqNum, senderId)
+                   << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
       send(repMsg.get(), clientId);
     }
   }
@@ -647,7 +668,7 @@ std::pair<PrePrepareMsg *, bool> ReplicaImp::buildPrePrepareMsgBatchByRequestsNu
 
 bool ReplicaImp::tryToSendPrePrepareMsg(bool batchingLogic) {
   if (!checkSendPrePrepareMsgPrerequisites()) return false;
-
+  LOG_INFO(CNSUS, "SS-- In tryToSendPrePrepareMsg");
   removeDuplicatedRequestsFromRequestsQueue();
   PrePrepareMsg *pp = nullptr;
   bool isSent = false;
@@ -675,6 +696,7 @@ bool ReplicaImp::tryToSendPrePrepareMsg(bool batchingLogic) {
     }
   }
   if (!pp) return isSent;
+  LOG_INFO(CNSUS, "SS-- Starting consensus process");
   startConsensusProcess(pp);
   return true;
 }
@@ -892,8 +914,8 @@ void ReplicaImp::startConsensusProcess(PrePrepareMsg *pp, bool isCreatedEarlier)
   SCOPED_MDC_PATH(CommitPathToMDCString(firstPath));
 
   LOG_INFO(CNSUS,
-           "Sending PrePrepare message" << KVLOG(pp->numberOfRequests())
-                                        << " correlation ids: " << pp->getBatchCorrelationIdAsString());
+           "SS--Sending PrePrepare message" << KVLOG(pp->numberOfRequests())
+                                            << " correlation ids: " << pp->getBatchCorrelationIdAsString());
 
   consensus_times_.start(primaryLastUsedSeqNum);
 
@@ -915,6 +937,9 @@ void ReplicaImp::startConsensusProcess(PrePrepareMsg *pp, bool isCreatedEarlier)
   {
     TimeRecorder scoped_timer1(*histograms_.broadcastPrePrepare);
     if (!retransmissionsLogicEnabled) {
+      LOG_INFO(CNSUS,
+               "SS--Sending PrePrepare message to other replicas"
+                   << KVLOG(pp->numberOfRequests()) << " correlation ids: " << pp->getBatchCorrelationIdAsString());
       sendToAllOtherReplicas(pp);
     } else {
       for (ReplicaId x : repsInfo->idsOfPeerReplicas()) {
@@ -929,6 +954,7 @@ void ReplicaImp::startConsensusProcess(PrePrepareMsg *pp, bool isCreatedEarlier)
     TimeRecorder scoped_timer1(*histograms_.sendPreparePartialToSelf);
     sendPreparePartial(seqNumInfo);
   } else {
+    LOG_INFO(CNSUS, "SS--fast path Sending partial proof message ");
     TimeRecorder scoped_timer1(*histograms_.sendPreparePartialToSelf);
     sendPartialProof(seqNumInfo);
   }
@@ -1041,6 +1067,7 @@ bool ReplicaImp::validatePreProcessedResults(const PrePrepareMsg *msg, const Vie
 
 template <>
 void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
+  LOG_INFO(CNSUS, "SS---- ReplicaImp::onMessage<PrePrepareMsg> Received PrePrepareMsg");
   if (isSeqNumToStopAt(msg->seqNumber())) {
     LOG_INFO(GL,
              "Ignoring PrePrepareMsg because system is stopped at checkpoint pending control state operation (upgrade, "
@@ -1062,7 +1089,7 @@ void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
 
   SCOPED_MDC_PRIMARY(std::to_string(currentPrimary()));
   SCOPED_MDC_SEQ_NUM(std::to_string(msgSeqNum));
-  LOG_INFO(CNSUS, "Received PrePrepareMsg" << KVLOG(msg->senderId(), msgSeqNum, msg->size()));
+  LOG_INFO(CNSUS, "SS---- Received PrePrepareMsg" << KVLOG(msg->senderId(), msgSeqNum, msg->size()));
   auto span = concordUtils::startChildSpanFromContext(msg->spanContext<std::remove_pointer<decltype(msg)>::type>(),
                                                       "handle_bft_preprepare");
   span.setTag("rid", config_.getreplicaId());
@@ -1109,6 +1136,7 @@ void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
       char *requestBody = nullptr;
       while (reqIter.getAndGoToNext(requestBody)) {
         ClientRequestMsg req(reinterpret_cast<ClientRequestMsgHeader *>(requestBody));
+        LOG_WARN(CNSUS, "SS-- In getting Result from pp msg Result###" << req.result());
         if (config_.timeServiceEnabled && req.flags() & MsgFlag::TIME_SERVICE_FLAG) continue;
         if (!clientsManager->isValidClient(req.clientProxyId())) continue;
         clientsManager->removeRequestsOutOfBatchBounds(req.clientProxyId(), req.requestSeqNum());
@@ -1128,8 +1156,10 @@ void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
       if (!slowStarted)  // TODO(GG): make sure we correctly handle a situation where StartSlowCommitMsg is handled
                          // before PrePrepareMsg
       {
+        LOG_WARN(CNSUS, "SS-- continued with sending partial proff fast path");
         sendPartialProof(seqNumInfo);
       } else {
+        LOG_WARN(CNSUS, "SS-- continued with start slow path");
         seqNumInfo.startSlowPath();
         metric_slow_path_count_++;
         sendPreparePartial(seqNumInfo);
@@ -1137,7 +1167,7 @@ void ReplicaImp::onMessage<PrePrepareMsg>(PrePrepareMsg *msg) {
       // if time is not ok, we do not continue with consensus flow
     }
   }
-
+  LOG_WARN(CNSUS, "SS-- continued with consenseus");
   if (!msgAdded) delete msg;
 }
 
@@ -1326,7 +1356,9 @@ void ReplicaImp::sendPartialProof(SeqNumInfo &seqNumInfo) {
 
   if (!partialProofs.hasFullProof()) {
     // send PartialCommitProofMsg to all collectors
-    LOG_INFO(CNSUS, "Sending PartialCommitProofMsg, sequence number:" << pp->seqNumber());
+    LOG_INFO(CNSUS,
+             "SS--Sending PartialCommitProofMsg, sequence number:" << pp->seqNumber()
+                                                                   << pp->getBatchCorrelationIdAsString());
 
     PartialCommitProofMsg *part = partialProofs.getSelfPartialCommitProof();
 
@@ -1364,6 +1396,9 @@ void ReplicaImp::sendPartialProof(SeqNumInfo &seqNumInfo) {
       for (int i = 0; i < numOfRouters; i++) {
         ReplicaId router = routersArray[i];
         if (router != config_.getreplicaId()) {
+          LOG_INFO(
+              CNSUS,
+              "SS--sent to sendRetransmittableMsgToReplica" << pp->seqNumber() << pp->getBatchCorrelationIdAsString());
           sendRetransmittableMsgToReplica(part, router, seqNum);
         }
       }
@@ -2403,7 +2438,7 @@ void ReplicaImp::sendRetransmittableMsgToReplica(MessageBase *msg,
                                                  SeqNum s,
                                                  bool ignorePreviousAcks) {
   send(msg, destReplica);
-
+  LOG_WARN(GL, "SS--Sent messgae to replica" << destReplica);
   if (!retransmissionsLogicEnabled) return;
 
   if (handledByRetransmissionsManager(config_.getreplicaId(), destReplica, currentPrimary(), s, msg->type()))
@@ -4840,7 +4875,8 @@ void ReplicaImp::executeSpecialRequests(PrePrepareMsg *ppMsg,
           std::string(req.requestSignature(), req.requestSignatureLength()),
           static_cast<uint32_t>(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
           (char *)std::malloc(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
-          req.requestSeqNum()});
+          req.requestSeqNum(),
+          req.result()});
 
       numOfSpecialReqs--;
     }
@@ -4864,7 +4900,7 @@ void ReplicaImp::executeSpecialRequests(PrePrepareMsg *ppMsg,
     req = singleRequest.at(0);
     singleRequest.clear();
   }
-
+  LOG_WARN(CNSUS, "SS--Finalized execution. executeSpecialRequests");
   sendResponses(ppMsg, accumulatedRequests);
 }
 
@@ -4887,6 +4923,9 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
       continue;
     }
 
+    LOG_INFO(GL,
+             "SS--Start Executing all the requests of preprepare message with cid: "
+                 << ppMsg->getCid() << ppMsg->getBatchCorrelationIdAsString());
     //    SCOPED_MDC_CID(req.getCid());
     NodeIdType clientId = req.clientProxyId();
 
@@ -4900,7 +4939,8 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
         std::string(req.requestSignature(), req.requestSignatureLength()),
         static_cast<uint32_t>(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         (char *)std::malloc(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
-        req.requestSeqNum()});
+        req.requestSeqNum(),
+        req.result()});
 
     if (req.flags() & HAS_PRE_PROCESSED_FLAG) {
       setConflictDetectionBlockId(req, pAccumulatedRequests->back());
@@ -4919,9 +4959,9 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
       bftRequestsHandler_->execute(*pAccumulatedRequests, time, ppMsg->getCid(), span);
     }
   } else {
-    LOG_INFO(
-        GL,
-        "Executing all the requests of preprepare message with cid: " << ppMsg->getCid() << " without accumulation");
+    LOG_INFO(GL,
+             "Executing all the requests of preprepare message with cid: "
+                 << ppMsg->getCid() << ppMsg->getBatchCorrelationIdAsString() << " without accumulation");
     IRequestsHandler::ExecutionRequestsQueue singleRequest;
     for (auto &req : *pAccumulatedRequests) {
       singleRequest.push_back(req);
@@ -4953,6 +4993,7 @@ void ReplicaImp::finishExecutePrePrepareMsg(PrePrepareMsg *ppMsg,
   activeExecutions_ = 0;
 
   if (pAccumulatedRequests != nullptr) {
+    LOG_WARN(CNSUS, "SS--Finalized execution finishExecutePrePrepareMsg. ");
     sendResponses(ppMsg, *pAccumulatedRequests);
     delete pAccumulatedRequests;
   }
@@ -5438,7 +5479,8 @@ void ReplicaImp::executeRequestsAndSendResponses(PrePrepareMsg *ppMsg,
         std::string(req.requestSignature(), req.requestSignatureLength()),
         static_cast<uint32_t>(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         (char *)std::malloc(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
-        req.requestSeqNum()});
+        req.requestSeqNum(),
+        req.result()});
     // Decode the pre-execution block-id for the conflict detection optimization,
     // and pass it to the post-execution.
     if (req.flags() & HAS_PRE_PROCESSED_FLAG) {
@@ -5470,6 +5512,7 @@ void ReplicaImp::executeRequestsAndSendResponses(PrePrepareMsg *ppMsg,
       singleRequest.clear();
     }
   }
+  LOG_WARN(CNSUS, "SS--Finalized execution. executeRequestsAndSendResponses");
   sendResponses(ppMsg, accumulatedRequests);
 }
 
@@ -5478,7 +5521,7 @@ void ReplicaImp::sendResponses(PrePrepareMsg *ppMsg, IRequestsHandler::Execution
   for (auto &req : accumulatedRequests) {
     auto executionResult = req.outExecutionStatus;
     std::unique_ptr<ClientReplyMsg> replyMsg;
-
+    LOG_WARN(CNSUS, "##################SS-- Result################ " << executionResult);
     if (executionResult != 0) {
       LOG_WARN(CNSUS, "Request execution failed: " << KVLOG(req.clientId, req.requestSequenceNum, ppMsg->getCid()));
     } else {
@@ -5497,12 +5540,14 @@ void ReplicaImp::sendResponses(PrePrepareMsg *ppMsg, IRequestsHandler::Execution
         clientsManager->removePendingForExecutionRequest(req.clientId, req.requestSequenceNum);
         continue;
       } else {
-        LOG_WARN(CNSUS, "Received zero size response." << KVLOG(req.clientId, req.requestSequenceNum, ppMsg->getCid()));
+        LOG_WARN(CNSUS,
+                 "SS--Received zero size response." << KVLOG(
+                     req.clientId, req.requestSequenceNum, ppMsg->getCid(), ppMsg->getBatchCorrelationIdAsString()));
         strcpy(req.outReply, "Executed data is empty");
         executionResult = static_cast<uint32_t>(bftEngine::OperationResult::EXEC_DATA_EMPTY);
       }
     }
-
+    LOG_WARN(CNSUS, "5505##################SS-- Result################ " << executionResult);
     replyMsg = clientsManager->allocateNewReplyMsgAndWriteToStorage(
         req.clientId, req.requestSequenceNum, currentPrimary(), req.outReply, 0, 0, executionResult);
     send(replyMsg.get(), req.clientId);
