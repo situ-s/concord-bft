@@ -91,8 +91,19 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
   auto pre_execute = requests.back().flags & bftEngine::PRE_PROCESS_FLAG;
 
   for (auto &req : requests) {
-    if (req.outExecutionStatus != static_cast<uint32_t>(OperationResult::UNKNOWN))
-      continue;  // Request already executed (internal or pre-executed)
+    LOG_ERROR(m_logger,
+              "SS-- in InternalCommandsHandler::execute Result###" << req.outExecutionStatus
+                                                                   << "SEQ_NUM:" << req.requestSequenceNum << "Size"
+                                                                   << req.outActualReplySize);
+    // SS---check here, its going out withput execution for
+    if (req.outExecutionStatus != static_cast<uint32_t>(OperationResult::UNKNOWN)) {
+      // SS--Add above check as if its success then not needed alse execute
+      LOG_ERROR(m_logger,
+                "SS-- in InternalCommandsHandler::execute Result not UKNOWN ###"
+                    << req.outExecutionStatus << "SEQ_NUM:" << req.requestSequenceNum << "Size"
+                    << req.outActualReplySize);
+      // continue;  // SS--Request already executed (internal or pre-executed)
+    }
     req.outReplicaSpecificInfoSize = 0;
     OperationResult res;
     if (req.requestSize <= 0) {
@@ -100,6 +111,7 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
       req.outExecutionStatus = static_cast<uint32_t>(OperationResult::INVALID_REQUEST);
       continue;
     }
+    LOG_ERROR(m_logger, "SS-- Request result value in EE" << req.outExecutionStatus);
     bool readOnly = req.flags & MsgFlag::READ_ONLY_FLAG;
     if (readOnly) {
       res = executeReadOnlyCommand(req.requestSize,
@@ -123,8 +135,12 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
                                 verUpdates,
                                 merkleUpdates);
     }
-    if (res != OperationResult::SUCCESS) LOG_WARN(m_logger, "Command execution failed!");
-    req.outExecutionStatus = static_cast<uint32_t>(res);
+    if (res != OperationResult::SUCCESS) {
+      LOG_WARN(m_logger, "Command execution failed!");
+      req.outExecutionStatus = static_cast<uint32_t>(res);
+    }
+    LOG_ERROR(m_logger,
+              "SS-- Request result chnaged value in EE" << req.outExecutionStatus << "Size" << req.outActualReplySize);
   }
 
   if (!pre_execute && (merkleUpdates.size() > 0 || verUpdates.size() > 0)) {
@@ -331,10 +347,11 @@ OperationResult InternalCommandsHandler::executeWriteCommand(uint32_t requestSiz
                 "pointer type used by CMF.");
   const uint8_t *request_buffer_as_uint8 = reinterpret_cast<const uint8_t *>(request);
   if (!(flags & MsgFlag::HAS_PRE_PROCESSED_FLAG)) {
-    if (verifyWriteCommand(requestSize, request_buffer_as_uint8, maxReplySize, outReplySize) !=
-        OperationResult::SUCCESS) {
+    auto res = verifyWriteCommand(requestSize, request_buffer_as_uint8, maxReplySize, outReplySize);
+    if (res != OperationResult::SUCCESS) {
       LOG_INFO(GL, "SS-- in execute right, operation result is not success");
-      ConcordAssert(0);
+      return res;
+      // SS--ConcordAssert(0);
     }
     if (flags & MsgFlag::PRE_PROCESS_FLAG) {
       SKVBCRequest deserialized_request;
@@ -418,6 +435,9 @@ OperationResult InternalCommandsHandler::executeWriteCommand(uint32_t requestSiz
     LOG_INFO(m_logger,
              "ConditionalWrite message handled; writesCounter=" << m_writesCounter
                                                                 << " currBlock=" << write_rep.latest_block);
+  if (hasConflict) {
+    return OperationResult::CONFLICT_DETECTED;
+  }
   return OperationResult::SUCCESS;
 }
 

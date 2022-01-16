@@ -9,26 +9,18 @@
 # notices and license terms. Your use of these subcomponents is subject to the
 # terms and conditions of the subcomponent's license, as noted in the LICENSE
 # file.
+
+import sys
 import os.path
 import random
 import unittest
 import trio
-from enum import IntEnum
+
+sys.path.append(os.path.abspath("../../util/pyclient"))
 
 from util import skvbc as kvbc
 from util.bft import with_trio, with_bft_network, KEY_FILE_PREFIX
-
-class OperationResult(IntEnum):
-    SUCCESS = 0
-    UNKNOWN = 1
-    INVALID_REQUEST = 2
-    NOT_READY = 3
-    TIMEOUT = 4
-    EXEC_DATA_TOO_LARGE = 5
-    EXEC_DATA_EMPTY = 6
-    CONFLICT_DETECTED = 7
-    OVERLOADED = 8
-    INTERNAL_ERROR = 9
+import bft_msgs
 
 def start_replica_cmd(builddir, replica_id):
     """
@@ -49,9 +41,10 @@ def start_replica_cmd(builddir, replica_id):
             ]
 
 class SkvbcBftErrorTest(unittest.TestCase):
+
     @with_trio
     @with_bft_network(start_replica_cmd)
-    async def test_results_from_replicas(self, bft_network):
+    async def test_expected_replies_from_replicas(self, bft_network):
         """
         Test that a replica succeeds to ask for missing info from the former window
 
@@ -67,35 +60,96 @@ class SkvbcBftErrorTest(unittest.TestCase):
         value = skvbc.random_value()
         kv_pair = [(key, value)]
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.SUCCESS)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.SUCCESS)
         print("SS-- raw reply", reply[0], "OperationResult.SUCCESS(0) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.SUCCESS, \
+                        f"Expected Reply={bft_msgs.OperationResult.SUCCESS}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.UNKNOWN)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.UNKNOWN)
         print("SS-- raw reply", reply[0], "OperationResult.UNKNOWN(1) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.UNKNOWN, \
+                        f"Expected Reply={bft_msgs.OperationResult.SUCCESS}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.INVALID_REQUEST)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.INVALID_REQUEST)
         print("SS-- raw reply", reply[0], "OperationResult.INVALID_REQUEST(2) Result: ",reply[1])   
+        assert reply[1] == bft_msgs.OperationResult.INVALID_REQUEST, \
+                        f"Expected Reply={bft_msgs.OperationResult.INVALID_REQUEST}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.NOT_READY)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.NOT_READY)
         print("SS-- raw reply", reply[0], "OperationResult.NOT_READY(3) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.NOT_READY, \
+                        f"Expected Reply={bft_msgs.OperationResult.NOT_READY}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.TIMEOUT)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.TIMEOUT)
         print("SS-- raw reply", reply[0], "OperationResult.TIMEOUT(4) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.TIMEOUT, \
+                        f"Expected Reply={bft_msgs.OperationResult.TIMEOUT}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.EXEC_DATA_TOO_LARGE)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.EXEC_DATA_TOO_LARGE)
         print("SS-- raw reply", reply[0], "OperationResult.EXEC_DATA_TOO_LARGE(5) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.EXEC_DATA_TOO_LARGE, \
+                        f"Expected Reply={bft_msgs.OperationResult.EXEC_DATA_TOO_LARGE}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.EXEC_DATA_EMPTY)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.EXEC_DATA_EMPTY)
         print("SS-- raw reply", reply[0], "OperationResult.EXEC_DATA_EMPTY(6) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.EXEC_DATA_EMPTY, \
+                        f"Expected Reply={bft_msgs.OperationResult.EXEC_DATA_EMPTY}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.CONFLICT_DETECTED)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.CONFLICT_DETECTED)
         print("SS-- raw reply", reply[0], "OperationResult.CONFLICT_DETECTED(7) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.CONFLICT_DETECTED, \
+                        f"Expected Reply={bft_msgs.OperationResult.CONFLICT_DETECTED}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.OVERLOADED)
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.OVERLOADED)
         print("SS-- raw reply", reply[0], "OperationResult.OVERLOADED(8) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.OVERLOADED, \
+                        f"Expected Reply={bft_msgs.OperationResult.OVERLOADED}; actual={reply[1]}"
+    
+        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=bft_msgs.OperationResult.INTERNAL_ERROR)
+        print("SS-- raw reply", reply[0], "OperationResult.INTERNAL_ERROR(9) Result: ",reply[1]) 
+        assert reply[1] == bft_msgs.OperationResult.INTERNAL_ERROR, \
+                        f"Expected Reply={bft_msgs.OperationResult.INTERNAL_ERROR}; actual={reply[1]}"
 
-        reply = await client.write(skvbc.write_req([], kv_pair, 0), result=OperationResult.INTERNAL_ERROR)
-        print("SS-- raw reply", reply[0], "OperationResult.INTERNAL_ERROR(9) Result: ",reply[1])
+    @with_trio
+    @with_bft_network(start_replica_cmd)
+    async def test_conflict_detected_from_replicas(self, bft_network):
+    
+        bft_network.start_all_replicas()
+        skvbc = kvbc.SimpleKVBCProtocol(bft_network)
+        key = skvbc.random_key()
+
+        write_1 = skvbc.write_req(
+            readset=[],
+            writeset=[(key, skvbc.random_value())],
+            block_id=0)
+
+        write_2 = skvbc.write_req(
+            readset=[],
+            writeset=[(key, skvbc.random_value())],
+            block_id=0)
+
+        client = bft_network.random_client()
+
+        await client.write(write_1)
+        last_write_reply = \
+            skvbc.parse_reply(await client.write(write_2))
+
+        last_block_id = last_write_reply.last_block_id
+
+        key_prime = skvbc.random_key()
+
+        # this write is conflicting because the writeset (key_prime) is
+        # based on an outdated version of the readset (key)
+        conflicting_write = skvbc.write_req(
+            readset=[key],
+            writeset=[(key_prime, skvbc.random_value())],
+            block_id=last_block_id - 1)
+
+        reply = await client.write(conflicting_write);
+        print("SS-- raw reply", reply[0], "OperationResult.CONFLCIT_DETECTED(7) Result: ",reply[1])
+        assert reply[1] == bft_msgs.OperationResult.CONFLICT_DETECTED, \
+                        f"Expected Reply={bft_msgs.OperationResult.CONFLICT_DETECTED}; actual={reply[1]}"
+
 
 if __name__ == '__main__':
     unittest.main()

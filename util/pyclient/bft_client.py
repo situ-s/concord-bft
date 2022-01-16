@@ -11,6 +11,7 @@
 # file.
 
 # This code requires python 3.5 or later
+from http import client
 import struct
 import trio
 import time
@@ -177,6 +178,7 @@ class BftClient(ABC):
 
         signature = b''
         client_id = self.client_id
+        print("Client id", client_id)
         if self.signing_key:
             h = SHA256.new(msg)
             signature = pkcs1_15.new(self.signing_key).sign(h)

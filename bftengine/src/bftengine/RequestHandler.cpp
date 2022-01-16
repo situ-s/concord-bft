@@ -32,24 +32,26 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
                              std::optional<Timestamp> timestamp,
                              const std::string& batchCid,
                              concordUtils::SpanWrapper& parent_span) {
-  LOG_INFO(GL, "SS-- In RequestHandler::execute");
   for (auto& req : requests) {
+    LOG_INFO(
+        GL,
+        "SS-- In RequestHandler::execute Req_seq_num:" << req.requestSequenceNum << "size" << req.outActualReplySize);
+    LOG_INFO(GL, "SS--BFT handler result" << req.outExecutionStatus);
     if (req.flags & KEY_EXCHANGE_FLAG) {
-      LOG_INFO(KEY_EX_LOG, "BFT handler result" << req.outExecutionStatus);
       KeyExchangeMsg ke = KeyExchangeMsg::deserializeMsg(req.request, req.requestSize);
-      LOG_INFO(KEY_EX_LOG, "BFT handler received KEY_EXCHANGE msg " << ke.toString());
+      LOG_INFO(GL, "SS--BFT handler received KEY_EXCHANGE msg " << ke.toString());
       auto resp = impl::KeyExchangeManager::instance().onKeyExchange(ke, req.executionSequenceNum, req.cid);
       if (resp.size() <= req.maxReplySize) {
         std::copy(resp.begin(), resp.end(), req.outReply);
         req.outActualReplySize = resp.size();
       } else {
-        LOG_ERROR(KEY_EX_LOG, "KEY_EXCHANGE response is too large, response " << resp);
+        LOG_ERROR(GL, "KEY_EXCHANGE response is too large, response " << resp);
         req.outActualReplySize = 0;
       }
       req.outExecutionStatus = static_cast<uint32_t>(OperationResult::SUCCESS);
-      LOG_INFO(KEY_EX_LOG, "BFT handler return result" << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler return result" << req.outExecutionStatus);
     } else if (req.flags & MsgFlag::RECONFIG_FLAG) {
-      LOG_INFO(KEY_EX_LOG, "BFT handler reconfig flag result" << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler reconfig flag result" << req.outExecutionStatus);
       ReconfigurationRequest rreq;
       deserialize(std::vector<std::uint8_t>(req.request, req.request + req.requestSize), rreq);
       ReconfigurationResponse rsi_res = reconfig_dispatcher_.dispatch(rreq, req.executionSequenceNum, timestamp);
@@ -57,7 +59,7 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
       // and the rest as additional data, since it may differ between replicas
       if (req.flags & MsgFlag::READ_ONLY_FLAG) {
         // Serialize response
-        LOG_INFO(KEY_EX_LOG, "BFT handler read request result" << req.outExecutionStatus);
+        LOG_INFO(GL, "BFT handler read request result" << req.outExecutionStatus);
         ReconfigurationResponse res;
         res.success = rsi_res.success;
         res.additional_data = rsi_res.additional_data;
@@ -80,7 +82,7 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
           req.outActualReplySize = 0;
         }
       } else {  // in case of write request return the whole response
-        LOG_INFO(KEY_EX_LOG, "BFT handler write request result" << req.outExecutionStatus);
+        LOG_INFO(GL, "BFT handler write request result" << req.outExecutionStatus);
         std::vector<uint8_t> serialized_rsi_response;
         concord::messages::serialize(serialized_rsi_response, rsi_res);
         if (serialized_rsi_response.size() <= req.maxReplySize) {
@@ -96,13 +98,13 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
       // Stop further processing of this request
       // SS-- imp Commenting to check the return
       req.outExecutionStatus = static_cast<uint32_t>(OperationResult::SUCCESS);
-      LOG_INFO(KEY_EX_LOG, "BFT handler write request return result" << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler write request return result" << req.outExecutionStatus);
       // Don't continue to process requests after pruning (in case we run in async pruning mode)
       if (std::holds_alternative<concord::messages::PruneRequest>(rreq.command)) return;
     } else if (req.flags & TICK_FLAG) {
       // Make sure the reply always contains one dummy 0 byte. Needed as empty replies are not supported at that stage.
       // Also, set replica specific information size to 0.
-      LOG_INFO(KEY_EX_LOG, "BFT handler tick request result" << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler tick request result" << req.outExecutionStatus);
       req.outActualReplySize = 1;
       req.outReply[0] = '\0';
       req.outReplicaSpecificInfoSize = 0;
@@ -144,21 +146,25 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
     // - save it to reserved pages.
     // - proxy it to the application command handler.
     if (req.flags & bftEngine::MsgFlag::CLIENTS_PUB_KEYS_FLAG) {
-      LOG_INFO(KEY_EX_LOG, "BFT handler pub_key request " << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler pub_key request " << req.outExecutionStatus);
       std::string received_keys(req.request, req.requestSize);
       std::optional<std::string> bootstrap_keys;
       if (req.flags & bftEngine::MsgFlag::PUBLISH_ON_CHAIN_OBJECT_FLAG) {
-        LOG_INFO(KEY_EX_LOG, "Received initial publish clients keys request");
+        LOG_INFO(GL, "Received initial publish clients keys request");
         bootstrap_keys = impl::SigManager::instance()->getClientsPublicKeys();
       } else {
-        LOG_INFO(KEY_EX_LOG, "Received publish clients keys request");
+        LOG_INFO(GL, "Received publish clients keys request");
       }
       impl::KeyExchangeManager::instance().onPublishClientsKeys(received_keys, bootstrap_keys);
       req.outExecutionStatus = static_cast<uint32_t>(OperationResult::SUCCESS);
-      LOG_INFO(KEY_EX_LOG, "BFT handler pub_key request result" << req.outExecutionStatus);
+      LOG_INFO(GL, "BFT handler pub_key request result" << req.outExecutionStatus);
       req.outReply[0] = '1';
       req.outActualReplySize = 1;
     }
+    LOG_INFO(GL,
+             "SS-- Exit In RequestHandler::execute Req_seq_num:" << req.requestSequenceNum << "Result###"
+                                                                 << req.outExecutionStatus << "SIze"
+                                                                 << req.outActualReplySize);
   }
   if (userRequestsHandler_) return userRequestsHandler_->execute(requests, timestamp, batchCid, parent_span);
   return;

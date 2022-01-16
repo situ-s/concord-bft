@@ -357,9 +357,10 @@ std::function<bool(MessageBase *)> ReplicaImp::getMessageValidator() {
 }
 
 void ReplicaImp::send(MessageBase *m, NodeIdType dest) {
+  // SS-- if we have internal error then reply is not sent by client manager
   if (clientsManager->isInternal(dest)) {
     LOG_INFO(GL, "Not sending reply to internal client id - " << dest);
-    return;
+    // return;
   }
   TimeRecorder scoped_timer(*histograms_.send);
   LOG_WARN(GL, "SS-- in send dest" << dest);
@@ -5539,12 +5540,6 @@ void ReplicaImp::sendResponses(PrePrepareMsg *ppMsg, IRequestsHandler::Execution
         req.outReply = nullptr;
         clientsManager->removePendingForExecutionRequest(req.clientId, req.requestSequenceNum);
         continue;
-      } else {
-        LOG_WARN(CNSUS,
-                 "SS--Received zero size response." << KVLOG(
-                     req.clientId, req.requestSequenceNum, ppMsg->getCid(), ppMsg->getBatchCorrelationIdAsString()));
-        strcpy(req.outReply, "Executed data is empty");
-        executionResult = static_cast<uint32_t>(bftEngine::OperationResult::EXEC_DATA_EMPTY);
       }
     }
     LOG_WARN(CNSUS, "5505##################SS-- Result################ " << executionResult);
