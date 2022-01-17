@@ -137,8 +137,8 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
     }
     if (res != OperationResult::SUCCESS) {
       LOG_WARN(m_logger, "Command execution failed!");
-      req.outExecutionStatus = static_cast<uint32_t>(res);
     }
+    req.outExecutionStatus = static_cast<uint32_t>(res);
     LOG_ERROR(m_logger,
               "SS-- Request result chnaged value in EE" << req.outExecutionStatus << "Size" << req.outActualReplySize);
   }

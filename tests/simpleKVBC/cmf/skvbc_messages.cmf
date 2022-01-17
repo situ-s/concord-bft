@@ -38,6 +38,7 @@ Msg SKVBCReadReply 7 {
 Msg SKVBCWriteReply 8 {
     bool success
     uint64 latest_block
+    uint32 op_result
 }
 
 Msg SKVBCGetLastBlockReply 9 {

@@ -197,7 +197,7 @@ class BftClient(ABC):
                 self._reset_on_new_request([seq_num])
                 replies = await self._send_receive_loop(
                     data, read_only, m_of_n_quorum, include_ro=include_ro, no_retries=no_retries)
-                return next(iter(self.replies.values())).get_common_data_with_result() if replies else None
+                return next(iter(self.replies.values())).get_common_data() if replies else None
         except trio.TooSlowError:
             print("TooSlowError thrown from client_id", self.client_id, "for seq_num", seq_num)
             raise trio.TooSlowError
