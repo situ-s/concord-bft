@@ -90,6 +90,7 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
   auto pre_execute = requests.back().flags & bftEngine::PRE_PROCESS_FLAG;
 
   for (auto &req : requests) {
+    LOG_WARN(m_logger, "SS-- intial Result" << req.outExecutionStatus << "Reply" << req.outActualReplySize);
     if (req.outExecutionStatus != static_cast<uint32_t>(OperationResult::UNKNOWN))
       continue;  // Request already executed (internal)
     req.outReplicaSpecificInfoSize = 0;
@@ -129,8 +130,8 @@ void InternalCommandsHandler::execute(InternalCommandsHandler::ExecutionRequests
     if (req.outExecutionStatus == static_cast<uint32_t>(OperationResult::UNKNOWN)) {
       req.outExecutionStatus = static_cast<uint32_t>(res);
     }
+    LOG_WARN(m_logger, "SS-- Result" << req.outExecutionStatus << "Reply" << req.outActualReplySize);
   }
-
   if (!pre_execute && (merkleUpdates.size() > 0 || verUpdates.size() > 0)) {
     // Write Block accumulated requests
     writeAccumulatedBlock(requests, verUpdates, merkleUpdates);
@@ -350,7 +351,7 @@ OperationResult InternalCommandsHandler::executeWriteCommand(uint32_t requestSiz
                    << " READ_ONLY_FLAG=" << ((flags & MsgFlag::READ_ONLY_FLAG) != 0 ? "true" : "false")
                    << " PRE_PROCESS_FLAG=" << ((flags & MsgFlag::PRE_PROCESS_FLAG) != 0 ? "true" : "false")
                    << " HAS_PRE_PROCESSED_FLAG=" << ((flags & MsgFlag::HAS_PRE_PROCESSED_FLAG) != 0 ? "true" : "false")
-                   << " BLOCK_ACCUMULATION_ENABLED=" << isBlockAccumulationEnabled);
+                   << " BLOCK_ACCUMULATION_ENABLED=" << isBlockAccumulationEnabled << "preprocesReply" << requestSize);
       if (write_req.long_exec) sleep(LONG_EXEC_CMD_TIME_IN_SEC);
       outReplySize = requestSize;
       memcpy(outReply, request, requestSize);
@@ -367,7 +368,7 @@ OperationResult InternalCommandsHandler::executeWriteCommand(uint32_t requestSiz
                << " READ_ONLY_FLAG=" << ((flags & MsgFlag::READ_ONLY_FLAG) != 0 ? "true" : "false")
                << " PRE_PROCESS_FLAG=" << ((flags & MsgFlag::PRE_PROCESS_FLAG) != 0 ? "true" : "false")
                << " HAS_PRE_PROCESSED_FLAG=" << ((flags & MsgFlag::HAS_PRE_PROCESSED_FLAG) != 0 ? "true" : "false")
-               << " BLOCK_ACCUMULATION_ENABLED=" << isBlockAccumulationEnabled);
+               << " BLOCK_ACCUMULATION_ENABLED=" << isBlockAccumulationEnabled << "preprocesReply" << requestSize);
   BlockId currBlock = m_storage->getLastBlockId();
 
   // Look for conflicts

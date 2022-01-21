@@ -1551,7 +1551,9 @@ OperationResult PreProcessor::launchReqPreProcessing(const PreProcessRequestMsgS
   const auto &span_context = preProcessReqMsg->spanContext<PreProcessRequestMsgSharedPtr::element_type>();
   // Unused for now. Replica Specific Info not currently supported in pre-execution.
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_process_preprocess_msg");
-  LOG_DEBUG(logger(), "Pass request for a pre-execution" << KVLOG(cid, reqSeqNum, clientId, reqOffsetInBatch));
+  LOG_INFO(logger(),
+           "Pass request for a pre-execution"
+               << KVLOG(cid, reqSeqNum, clientId, reqOffsetInBatch, preProcessReqMsg->result()));
   bftEngine::IRequestsHandler::ExecutionRequestsQueue accumulatedRequests;
   uint64_t blockId = preProcessReqMsg->primaryBlockId();
   if (preProcessReqMsg->primaryBlockId() - GlobalData::block_delta > GlobalData::current_block_id) {
@@ -1593,9 +1595,9 @@ OperationResult PreProcessor::launchReqPreProcessing(const PreProcessRequestMsgS
   // Append the conflict detection block id and add its size to the resulting length.
   memcpy(preProcessResultBuffer + request.outActualReplySize, reinterpret_cast<char *>(&blockId), sizeof(uint64_t));
   resultLen += sizeof(uint64_t);
-  LOG_DEBUG(
-      logger(),
-      "Pre-execution operation successfully completed" << KVLOG(cid, reqSeqNum, clientId, reqOffsetInBatch, blockId));
+  LOG_INFO(logger(),
+           "Pre-execution operation successfully completed"
+               << KVLOG(cid, reqSeqNum, clientId, reqOffsetInBatch, blockId, resultLen));
   return OperationResult::SUCCESS;
 }
 

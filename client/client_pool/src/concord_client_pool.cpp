@@ -89,7 +89,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
       } else {
         ClientPoolMetrics_.second_leg_counter++;
       }
-      LOG_DEBUG(
+      LOG_INFO(
           logger_,
           "Added request" << KVLOG(seq_num, correlation_id, client->PendingRequestsCount(), batch_size_, client_id));
 
@@ -103,7 +103,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
         ClientPoolMetrics_.full_batch_counter++;
         assignJobToClient(client);
       }
-      LOG_DEBUG(logger_, "Request Acknowledged (batch)" << KVLOG(client_id, correlation_id, seq_num, flags));
+      LOG_INFO(logger_, "Request Acknowledged (batch)" << KVLOG(client_id, correlation_id, seq_num, flags));
       return SubmitResult::Acknowledged;
     } else {
       clients_.pop_front();
@@ -128,7 +128,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
                           correlation_id,
                           span_context,
                           callback);
-        LOG_DEBUG(logger_, "Request Acknowledged (single)" << KVLOG(client_id, correlation_id, seq_num, flags));
+        LOG_INFO(logger_, "Request Acknowledged (single)" << KVLOG(client_id, correlation_id, seq_num, flags));
         return SubmitResult::Acknowledged;
       }
     }
@@ -136,7 +136,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
 
   // Request hasn't been processed yet
   if (external_requests_queue_.size() < jobs_queue_max_size_) {
-    LOG_DEBUG(logger_, "Request has been inserted to the wait queue" << KVLOG(correlation_id, seq_num));
+    LOG_INFO(logger_, "Request has been inserted to the wait queue" << KVLOG(correlation_id, seq_num));
     external_requests_queue_.emplace_back(externalRequest{std::move(request),
                                                           flags,
                                                           timeout_ms,
@@ -146,7 +146,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
                                                           std::chrono::steady_clock::now(),
                                                           reply_buffer,
                                                           max_reply_size});
-    LOG_DEBUG(logger_, "Request Acknowledged (external)" << KVLOG(client_id, correlation_id, seq_num, flags));
+    LOG_INFO(logger_, "Request Acknowledged (external)" << KVLOG(client_id, correlation_id, seq_num, flags));
     return SubmitResult::Acknowledged;
   } else {
     ClientPoolMetrics_.rejected_counter++;
@@ -164,7 +164,7 @@ SubmitResult ConcordClientPool::SendRequest(std::vector<uint8_t> &&request,
 }
 
 void ConcordClientPool::assignJobToClient(const ClientPtr &client) {
-  LOG_TRACE(logger_, "Launching a batch job for" << KVLOG(client->getClientId()));
+  LOG_INFO(logger_, "Launching a batch job for" << KVLOG(client->getClientId()));
   client->setStartRequestTime();
   auto *job = new BatchRequestProcessingJob(*this, client);
   ClientPoolMetrics_.requests_counter += client->PendingRequestsCount();
@@ -432,7 +432,7 @@ void SingleRequestProcessingJob::execute() {
   replies.push_back(ClientReply{static_cast<uint32_t>(request_.size()),
                                 nullptr,
                                 reply_size,
-                                OperationResult::SUCCESS,
+                                OperationResult::UNKNOWN,
                                 correlation_id_,
                                 span_context_});
   clients_pool_.InsertClientToQueue(processing_client_, {0, std::move(replies)});
@@ -441,7 +441,7 @@ void SingleRequestProcessingJob::execute() {
 void ConcordClientPool::InsertClientToQueue(
     ClientPtr &client, std::pair<int8_t, external_client::ConcordClient::PendingReplies> &&replies) {
   const auto client_id = client->getClientId();
-  LOG_DEBUG(logger_, "Client has completed processing request" << KVLOG(client_id));
+  LOG_INFO(logger_, "Client has completed processing request" << KVLOG(client_id));
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - client->getStartRequestTime()).count();
   ClientPoolMetrics_.last_request_time_gauge.Get().Set(duration);
@@ -479,9 +479,9 @@ void ConcordClientPool::InsertClientToQueue(
                                   req.correlation_id,
                                   req.span_context);
 
-        LOG_DEBUG(logger_,
-                  "Added request to the client" << KVLOG(
-                      client_id, req.seq_num, req.correlation_id, client->PendingRequestsCount(), batch_size_));
+        LOG_INFO(logger_,
+                 "Added request to the client"
+                     << KVLOG(client_id, req.seq_num, req.correlation_id, client->PendingRequestsCount(), batch_size_));
         external_requests_queue_.pop_front();
       } else {
         // No need to loop anymore
