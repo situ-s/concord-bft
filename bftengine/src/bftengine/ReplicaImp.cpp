@@ -395,10 +395,11 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
   const bool readOnly = m->isReadOnly();
   const ReqId reqSeqNum = m->requestSeqNum();
   const uint64_t flags = m->flags();
+  const uint32_t res = m->result();
 
   SCOPED_MDC_PRIMARY(std::to_string(currentPrimary()));
   SCOPED_MDC_CID(m->getCid());
-  LOG_DEBUG(CNSUS, KVLOG(clientId, reqSeqNum, senderId) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
+  LOG_INFO(CNSUS, KVLOG(clientId, reqSeqNum, senderId, res) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
 
   const auto &span_context = m->spanContext<std::remove_pointer<decltype(m)>::type>();
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_client_request");
@@ -481,7 +482,7 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
         return;
       }
       if (clientsManager->canBecomePending(clientId, reqSeqNum)) {
-        LOG_DEBUG(CNSUS, "Pushing to primary queue, request " << KVLOG(reqSeqNum, clientId, senderId));
+        LOG_INFO(CNSUS, "Pushing to primary queue, request " << KVLOG(reqSeqNum, clientId, senderId, res));
         if (time_to_collect_batch_ == MinTime) time_to_collect_batch_ = getMonotonicTime();
         requestsQueueOfPrimary.push(m);
         primaryCombinedReqSize += m->size();
@@ -501,7 +502,7 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
         if (requestsOfNonPrimary.size() < NonPrimaryCombinedReqSize)
           requestsOfNonPrimary[m->requestSeqNum()] = std::make_pair(getMonotonicTime(), m);
         send(m, currentPrimary());
-        LOG_INFO(CNSUS, "Forwarding ClientRequestMsg to the current primary." << KVLOG(reqSeqNum, clientId));
+        LOG_INFO(CNSUS, "Forwarding ClientRequestMsg to the current primary." << KVLOG(reqSeqNum, clientId, res));
         return;
       }
       if (clientsManager->isPending(clientId, reqSeqNum)) {
@@ -527,9 +528,9 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
 
 template <>
 void ReplicaImp::onMessage<preprocessor::PreProcessResultMsg>(preprocessor::PreProcessResultMsg *m) {
-  LOG_DEBUG(GL,
-            "Handling PreProcessResultMsg via ClientRequestMsg handler "
-                << KVLOG(m->clientProxyId(), m->getCid(), m->requestSeqNum()));
+  LOG_INFO(GL,
+           "Handling PreProcessResultMsg via ClientRequestMsg handler "
+               << KVLOG(m->clientProxyId(), m->getCid(), m->requestSeqNum(), m->result()));
   return onMessage<ClientRequestMsg>(m);
 }
 
@@ -4633,14 +4634,14 @@ void ReplicaImp::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_span, 
   status = single_request.outExecutionStatus;
   const uint32_t actualReplyLength = single_request.outActualReplySize;
   const uint32_t actualReplicaSpecificInfoLength = single_request.outReplicaSpecificInfoSize;
-  LOG_DEBUG(GL,
-            "Executed read only request. " << KVLOG(clientId,
-                                                    lastExecutedSeqNum,
-                                                    request->requestLength(),
-                                                    reply.maxReplyLength(),
-                                                    actualReplyLength,
-                                                    actualReplicaSpecificInfoLength,
-                                                    status));
+  LOG_INFO(GL,
+           "Executed read only request. " << KVLOG(clientId,
+                                                   lastExecutedSeqNum,
+                                                   request->requestLength(),
+                                                   reply.maxReplyLength(),
+                                                   actualReplyLength,
+                                                   actualReplicaSpecificInfoLength,
+                                                   status));
   // TODO(GG): TBD - how do we want to support empty replies? (actualReplyLength==0)
   if (!status) {
     if (actualReplyLength > 0) {

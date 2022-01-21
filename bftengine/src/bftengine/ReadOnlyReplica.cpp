@@ -188,9 +188,10 @@ void ReadOnlyReplica::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
   const bool reconfig_flag = (m->flags() & MsgFlag::RECONFIG_FLAG) != 0;
   const ReqId reqSeqNum = m->requestSeqNum();
   const uint64_t flags = m->flags();
+  const uint32_t res = m->result();
 
   SCOPED_MDC_CID(m->getCid());
-  LOG_DEBUG(CNSUS, KVLOG(clientId, reqSeqNum, senderId) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
+  LOG_INFO(CNSUS, KVLOG(clientId, reqSeqNum, senderId, res) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
 
   const auto &span_context = m->spanContext<std::remove_pointer<ClientRequestMsg>::type>();
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_client_request");
@@ -222,6 +223,13 @@ void ReadOnlyReplica::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_s
 
   int executionResult = 0;
   bftEngine::IRequestsHandler::ExecutionRequestsQueue accumulatedRequests;
+  LOG_INFO(GL,
+           "Executed read only request. " << KVLOG(clientId,
+                                                   lastExecutedSeqNum,
+                                                   request.requestLength(),
+                                                   reply.maxReplyLength(),
+                                                   request.requestLength(),
+                                                   request.result()));
   accumulatedRequests.push_back(bftEngine::IRequestsHandler::ExecutionRequest{clientId,
                                                                               static_cast<uint64_t>(lastExecutedSeqNum),
                                                                               request.getCid(),
@@ -240,14 +248,14 @@ void ReadOnlyReplica::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_s
   executionResult = single_request.outExecutionStatus;
   const uint32_t actualReplyLength = single_request.outActualReplySize;
   const uint32_t actualReplicaSpecificInfoLength = single_request.outReplicaSpecificInfoSize;
-  LOG_DEBUG(GL,
-            "Executed read only request. " << KVLOG(clientId,
-                                                    lastExecutedSeqNum,
-                                                    request.requestLength(),
-                                                    reply.maxReplyLength(),
-                                                    actualReplyLength,
-                                                    actualReplicaSpecificInfoLength,
-                                                    executionResult));
+  LOG_INFO(GL,
+           "Executed read only request. " << KVLOG(clientId,
+                                                   lastExecutedSeqNum,
+                                                   request.requestLength(),
+                                                   reply.maxReplyLength(),
+                                                   actualReplyLength,
+                                                   actualReplicaSpecificInfoLength,
+                                                   executionResult));
   // TODO(GG): TBD - how do we want to support empty replies? (actualReplyLength==0)
   if (!executionResult) {
     if (actualReplyLength > 0) {
