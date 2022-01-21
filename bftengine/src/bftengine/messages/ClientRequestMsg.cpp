@@ -54,7 +54,7 @@ ClientRequestMsg::ClientRequestMsg(NodeIdType sender,
   // logical XOR - if requestSignatureLen is zero requestSignature must be null and vise versa
   ConcordAssert((requestSignature == nullptr) == (requestSignatureLen == 0));
   // set header
-  setParams(sender, reqSeqNum, requestLength, flags, reqTimeoutMilli, result, cid, requestSignatureLen, extraBufSize);
+  setParams(sender, reqSeqNum, requestLength, flags, reqTimeoutMilli, 1, cid, requestSignatureLen, extraBufSize);
 
   // set span context
   char* position = body() + sizeof(ClientRequestMsgHeader);

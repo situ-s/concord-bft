@@ -432,7 +432,7 @@ void SingleRequestProcessingJob::execute() {
   replies.push_back(ClientReply{static_cast<uint32_t>(request_.size()),
                                 nullptr,
                                 reply_size,
-                                OperationResult::UNKNOWN,
+                                OperationResult::SUCCESS,
                                 correlation_id_,
                                 span_context_});
   clients_pool_.InsertClientToQueue(processing_client_, {0, std::move(replies)});

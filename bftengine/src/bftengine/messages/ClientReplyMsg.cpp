@@ -72,7 +72,6 @@ uint64_t ClientReplyMsg::debugHash() const {
   uint64_t retVal = 0;
 
   uint32_t replyLen = replyLength();
-  ConcordAssert(replyLen > 0);
 
   uint32_t firstWordLen = replyLen % sizeof(uint64_t);
   if (firstWordLen == 0) firstWordLen = sizeof(uint64_t);

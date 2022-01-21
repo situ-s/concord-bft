@@ -222,7 +222,7 @@ std::unique_ptr<ClientReplyMsg> ClientsManager::allocateNewReplyMsgAndWriteToSto
 
   // write currentPrimaryId to message (we don't store the currentPrimaryId in the reserved pages)
   r->setPrimaryId(currentPrimaryId);
-  LOG_INFO(CL_MNGR, "Returns reply with hash=" << r->debugHash() << KVLOG(clientId, requestSeqNum));
+  LOG_DEBUG(CL_MNGR, "Returns reply with hash=" << r->debugHash() << KVLOG(clientId, requestSeqNum));
   return r;
 }
 

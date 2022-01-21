@@ -344,7 +344,7 @@ OperationResult SimpleClientImp::sendRequest(uint8_t flags,
   if (isPreProcessRequired)
     reqMsg = new ClientPreProcessRequestMsg(clientId_, reqSeqNum, lenOfRequest, request, reqTimeoutMilli, msgCid, ctx);
   else
-    reqMsg = new ClientRequestMsg(clientId_, flags, reqSeqNum, lenOfRequest, request, reqTimeoutMilli, msgCid, 0, ctx);
+    reqMsg = new ClientRequestMsg(clientId_, flags, reqSeqNum, lenOfRequest, request, reqTimeoutMilli, msgCid, 1, ctx);
   {
     std::unique_lock<std::mutex> mlock(lock_);
     pendingRequests_.push_back(reqMsg);
@@ -452,7 +452,7 @@ OperationResult SimpleClientImp::preparePendingRequestsFromBatch(const deque<Cli
                                   (char*)req.request.data(),
                                   req.timeoutMilli,
                                   cid,
-                                  0,
+                                  1,
                                   ctx);
     {
       unique_lock<std::mutex> mlock(lock_);

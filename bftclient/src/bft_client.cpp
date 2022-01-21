@@ -68,6 +68,7 @@ Client::Client(std::unique_ptr<bft::communication::ICommunication> comm, const C
 }
 
 Msg Client::createClientMsg(const RequestConfig& config, Msg&& request, bool read_only, uint16_t client_id) {
+  LOG_INFO(logger_, "Create client message");
   uint8_t flags = read_only ? READ_ONLY_REQ : EMPTY_FLAGS_REQ;
   size_t expected_sig_len = 0;
   bool write_req_with_pre_exec = !read_only && config.pre_execute;
@@ -98,6 +99,7 @@ Msg Client::createClientMsg(const RequestConfig& config, Msg&& request, bool rea
   header->requestLength = request.size();
   header->timeoutMilli = config.timeout.count();
   header->cidLength = config.correlation_id.size();
+  header->result = 1;  // UNKNOWN
 
   auto* position = msg.data() + header_size;
 
@@ -141,7 +143,7 @@ Msg Client::createClientMsg(const RequestConfig& config, Msg&& request, bool rea
   } else {
     header->reqSignatureLength = 0;
   }
-
+  LOG_INFO(logger_, "Create client message" << header->result);
   return msg;
 }
 
@@ -194,6 +196,7 @@ Msg Client::initBatch(std::deque<WriteRequest>& write_requests,
 }
 
 Reply Client::send(const WriteConfig& config, Msg&& request) {
+  LOG_INFO(logger_, "Send write");
   ConcordAssertEQ(reply_certificates_.size(), 0);
   auto match_config = writeConfigToMatchConfig(config);
   bool read_only = false;
@@ -201,6 +204,7 @@ Reply Client::send(const WriteConfig& config, Msg&& request) {
 }
 
 Reply Client::send(const ReadConfig& config, Msg&& request) {
+  LOG_INFO(logger_, "Send read");
   ConcordAssertEQ(reply_certificates_.size(), 0);
   auto match_config = readConfigToMatchConfig(config);
   bool read_only = true;
@@ -211,6 +215,7 @@ Reply Client::send(const MatchConfig& match_config,
                    const RequestConfig& request_config,
                    Msg&& request,
                    bool read_only) {
+  LOG_INFO(logger_, "In send bft_clinet");
   metrics_.retransmissionTimer.Get().Set(expected_commit_time_ms_.upperLimit());
   metrics_.updateAggregator();
   reply_certificates_.insert(std::make_pair(request_config.sequence_number, Matcher(match_config)));

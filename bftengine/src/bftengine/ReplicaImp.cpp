@@ -399,7 +399,8 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
 
   SCOPED_MDC_PRIMARY(std::to_string(currentPrimary()));
   SCOPED_MDC_CID(m->getCid());
-  LOG_INFO(CNSUS, KVLOG(clientId, reqSeqNum, senderId, res) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
+  LOG_INFO(CNSUS,
+           KVLOG(clientId, reqSeqNum, senderId, res) << " BEFORE flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
 
   const auto &span_context = m->spanContext<std::remove_pointer<decltype(m)>::type>();
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_client_request");
@@ -4613,8 +4614,9 @@ void ReplicaImp::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_span, 
 
   uint16_t clientId = request->clientProxyId();
 
-  int status = 0;
+  uint32_t status = 0;
   bftEngine::IRequestsHandler::ExecutionRequestsQueue accumulatedRequests;
+
   accumulatedRequests.push_back(bftEngine::IRequestsHandler::ExecutionRequest{clientId,
                                                                               static_cast<uint64_t>(lastExecutedSeqNum),
                                                                               request->getCid(),
