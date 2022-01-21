@@ -205,7 +205,7 @@ std::unique_ptr<ClientReplyMsg> ClientsManager::allocateNewReplyMsgAndWriteToSto
     sizeLastPage = commonMsgSize % sizeOfReservedPage();
   }
 
-  LOG_DEBUG(CL_MNGR, KVLOG(clientId, requestSeqNum, numOfPages, sizeLastPage));
+  LOG_INFO(CL_MNGR, KVLOG(clientId, requestSeqNum, numOfPages, sizeLastPage, executionResult));
   // write reply message to reserved pages
   const uint32_t firstPageId = getReplyFirstPageId(clientId);
   for (uint32_t i = 0; i < numOfPages; i++) {
@@ -222,7 +222,7 @@ std::unique_ptr<ClientReplyMsg> ClientsManager::allocateNewReplyMsgAndWriteToSto
 
   // write currentPrimaryId to message (we don't store the currentPrimaryId in the reserved pages)
   r->setPrimaryId(currentPrimaryId);
-  LOG_DEBUG(CL_MNGR, "Returns reply with hash=" << r->debugHash() << KVLOG(clientId, requestSeqNum));
+  LOG_INFO(CL_MNGR, "Returns reply with hash=" << r->debugHash() << KVLOG(clientId, requestSeqNum));
   return r;
 }
 

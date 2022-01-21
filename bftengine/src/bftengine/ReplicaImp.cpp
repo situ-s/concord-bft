@@ -5004,7 +5004,9 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
 
     //    SCOPED_MDC_CID(req.getCid());
     NodeIdType clientId = req.clientProxyId();
-
+    LOG_INFO(GL,
+             "Executing all the requests of preprepare message with cid: "
+                 << ppMsg->getCid() << " result" << req.result() << "seq_num" << req.requestSeqNum());
     pAccumulatedRequests->push_back(IRequestsHandler::ExecutionRequest{
         clientId,
         static_cast<uint64_t>(lastExecutedSeqNum + 1),
@@ -5019,12 +5021,15 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
         req.result()});
 
     if (req.flags() & HAS_PRE_PROCESSED_FLAG) {
+      LOG_INFO(GL,
+               "has preprocessed flag---Executing all the requests of preprepare message with cid: "
+                   << ppMsg->getCid() << " result" << req.result() << "seq_num" << req.requestSeqNum());
       setConflictDetectionBlockId(req, pAccumulatedRequests->back());
     }
   }
   if (ReplicaConfig::instance().blockAccumulation) {
-    LOG_DEBUG(GL,
-              "Executing all the requests of preprepare message with cid: " << ppMsg->getCid() << " with accumulation");
+    LOG_INFO(GL,
+             "Executing all the requests of preprepare message with cid: " << ppMsg->getCid() << " with accumulation");
     {
       //      TimeRecorder scoped_timer1(*histograms_.executeWriteRequest);
       const concordUtils::SpanContext &span_context{""};
@@ -5069,6 +5074,7 @@ void ReplicaImp::finishExecutePrePrepareMsg(PrePrepareMsg *ppMsg,
   activeExecutions_ = 0;
 
   if (pAccumulatedRequests != nullptr) {
+    LOG_INFO(CNSUS, "Send responses " << ppMsg->seqNumber());
     sendResponses(ppMsg, *pAccumulatedRequests);
     delete pAccumulatedRequests;
   }
@@ -5602,7 +5608,10 @@ void ReplicaImp::sendResponses(PrePrepareMsg *ppMsg, IRequestsHandler::Execution
   for (auto &req : accumulatedRequests) {
     auto executionResult = req.outExecutionStatus;
     std::unique_ptr<ClientReplyMsg> replyMsg;
-
+    LOG_WARN(
+        CNSUS,
+        "Sending response: " << KVLOG(
+            req.clientId, req.requestSequenceNum, ppMsg->getCid(), req.outActualReplySize, req.outExecutionStatus));
     if (executionResult != 0) {
       LOG_WARN(CNSUS, "Request execution failed: " << KVLOG(req.clientId, req.requestSequenceNum, ppMsg->getCid()));
     } else {

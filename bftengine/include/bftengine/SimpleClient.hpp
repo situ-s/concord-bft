@@ -67,7 +67,7 @@ struct ClientReply {
   uint32_t lengthOfReplyBuffer = 0;
   char* replyBuffer = nullptr;
   uint32_t actualReplyLength = 0;
-  bftEngine::OperationResult opResult = bftEngine::OperationResult::SUCCESS;
+  bftEngine::OperationResult opResult = bftEngine::OperationResult::UNKNOWN;
   std::string cid;
   std::string span_context;
   RequestCallBack cb = {};
