@@ -5024,6 +5024,11 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
     //    SCOPED_MDC_CID(req.getCid());
     NodeIdType clientId = req.clientProxyId();
 
+    uint32_t replySize = 0;
+    if ((req.flags() & HAS_PRE_PROCESSED_FLAG) && (req.result() != static_cast<uint32_t>(OperationResult::UNKNOWN))) {
+      replySize = req.requestLength();
+    }
+
     pAccumulatedRequests->push_back(IRequestsHandler::ExecutionRequest{
         clientId,
         static_cast<uint64_t>(lastExecutedSeqNum + 1),
@@ -5035,7 +5040,8 @@ void ReplicaImp::executeRequests(PrePrepareMsg *ppMsg, Bitmap &requestSet, Times
         static_cast<uint32_t>(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         (char *)std::malloc(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         req.requestSeqNum(),
-        req.result()});
+        req.result(),
+        replySize});
 
     if (req.flags() & HAS_PRE_PROCESSED_FLAG) {
       setConflictDetectionBlockId(req, pAccumulatedRequests->back());
@@ -5577,6 +5583,11 @@ void ReplicaImp::executeRequestsAndSendResponses(PrePrepareMsg *ppMsg,
     SCOPED_MDC_CID(req.getCid());
     NodeIdType clientId = req.clientProxyId();
 
+    uint32_t replySize = 0;
+    if ((req.flags() & HAS_PRE_PROCESSED_FLAG) && (req.result() != static_cast<uint32_t>(OperationResult::UNKNOWN))) {
+      LOG_INFO(GL, "In here");
+      replySize = req.requestLength();
+    }
     accumulatedRequests.push_back(IRequestsHandler::ExecutionRequest{
         clientId,
         static_cast<uint64_t>(lastExecutedSeqNum + 1),
@@ -5588,12 +5599,16 @@ void ReplicaImp::executeRequestsAndSendResponses(PrePrepareMsg *ppMsg,
         static_cast<uint32_t>(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         (char *)std::malloc(config_.getmaxReplyMessageSize() - sizeof(ClientReplyMsgHeader)),
         req.requestSeqNum(),
-        req.result()});
+        req.result(),
+        replySize});
     // Decode the pre-execution block-id for the conflict detection optimization,
     // and pass it to the post-execution.
     if (req.flags() & HAS_PRE_PROCESSED_FLAG) {
       setConflictDetectionBlockId(req, accumulatedRequests.back());
     }
+    LOG_INFO(GL,
+             "Executing all the requests of preprepare message with cid: " << ppMsg->getCid() << " without accumulation"
+                                                                           << replySize);
   }
   if (ReplicaConfig::instance().blockAccumulation) {
     LOG_INFO(GL,

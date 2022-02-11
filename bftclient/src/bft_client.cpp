@@ -38,6 +38,7 @@ Client::Client(std::unique_ptr<bft::communication::ICommunication> comm, const C
       metrics_(config.id),
       histograms_(std::unique_ptr<Recorders>(new Recorders(config.id))) {
   // secrets_manager_config can be set only if transaction_signing_private_key_file_path is set
+  LOG_DEBUG(logger_, "Creating client msg1");
   if (config.secrets_manager_config) ConcordAssert(config.transaction_signing_private_key_file_path != std::nullopt);
   if (config.transaction_signing_private_key_file_path) {
     // transaction signing is enabled
@@ -144,7 +145,7 @@ Msg Client::createClientMsg(const RequestConfig& config, Msg&& request, bool rea
   } else {
     header->reqSignatureLength = 0;
   }
-
+  LOG_DEBUG(logger_, "return Creating client msg");
   return msg;
 }
 
@@ -221,6 +222,7 @@ Reply Client::send(const MatchConfig& match_config,
   auto orig_msg = createClientMsg(request_config, std::move(request), read_only, config_.id.val);
   auto start = std::chrono::steady_clock::now();
   auto end = start + request_config.timeout;
+  LOG_DEBUG(logger_, "Sending client msg");
   while (std::chrono::steady_clock::now() < end) {
     bft::client::Msg msg(orig_msg);  // create copy here due to the loop
     if (primary_ && !read_only) {
@@ -284,6 +286,7 @@ SeqNumToReplyMap Client::sendBatch(std::deque<WriteRequest>& write_requests, con
 std::optional<Reply> Client::wait() {
   SeqNumToReplyMap replies;
   wait(replies);
+  LOG_DEBUG(logger_, "wait client msg");
   if (replies.empty()) {
     static const size_t CLEAR_MATCHER_REPLIES_THRESHOLD = 2 * config_.f_val + config_.c_val + 1;
     // reply_certificates_ should hold just one request when using this wait method
@@ -305,6 +308,7 @@ void Client::wait(SeqNumToReplyMap& replies) {
   auto end_wait = now + retry_timeout;
   // Keep trying to receive messages until we get quorum or a retry timeout.
   while ((now = std::chrono::steady_clock::now()) < end_wait && !reply_certificates_.empty()) {
+    LOG_DEBUG(logger_, "getting msges");
     auto wait_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_wait - now);
     auto unmatched_requests = receiver_.wait(wait_time);
     for (auto&& reply : unmatched_requests) {

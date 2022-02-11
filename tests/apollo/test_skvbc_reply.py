@@ -24,6 +24,8 @@ from util import skvbc as kvbc
 from util.bft import with_trio, with_bft_network, KEY_FILE_PREFIX
 import bft_msgs
 
+SKVBC_INIT_GRACE_TIME = 2
+
 def start_replica_cmd(builddir, replica_id):
     """
     Return a command that starts an skvbc replica when passed to
@@ -44,7 +46,6 @@ def start_replica_cmd(builddir, replica_id):
 
 class SkvbcReplyTest(ApolloTest):
 
-    @unittest.skip("Unstable test - BC-18035")
     @with_trio
     @with_bft_network(start_replica_cmd, selected_configs=lambda n, f, c: c == 0 and n > 6)
     async def test_expected_replies_from_replicas(self, bft_network):
@@ -57,6 +58,7 @@ class SkvbcReplyTest(ApolloTest):
         """
 
         bft_network.start_all_replicas()
+        await trio.sleep(SKVBC_INIT_GRACE_TIME)
         client = bft_network.random_client()
         skvbc = kvbc.SimpleKVBCProtocol(bft_network)
         
@@ -69,6 +71,8 @@ class SkvbcReplyTest(ApolloTest):
                         f"Expected Reply={bft_msgs.OperationResult.INVALID_REQUEST}; actual={reply[1]}"
 
         reply = await client.write_with_result(skvbc.write_req([], kv_pair, 0), pre_process=True, result=bft_msgs.OperationResult.NOT_READY)
+        print (reply)
+        self.assertEqual(reply[1], bft_msgs.OperationResult.NOT_READY)
         assert reply[1] == bft_msgs.OperationResult.NOT_READY, \
                         f"Expected Reply={bft_msgs.OperationResult.NOT_READY}; actual={reply[1]}"
 
@@ -95,52 +99,6 @@ class SkvbcReplyTest(ApolloTest):
         reply = await client.write_with_result(skvbc.write_req([], kv_pair, 0), pre_process=True, result=bft_msgs.OperationResult.INTERNAL_ERROR)
         assert reply[1] == bft_msgs.OperationResult.INTERNAL_ERROR, \
                         f"Expected Reply={bft_msgs.OperationResult.INTERNAL_ERROR}; actual={reply[1]}"
-
-    @with_trio
-    @with_bft_network(start_replica_cmd, selected_configs=lambda n, f, c: c == 0 and n > 6)
-    async def test_conflict_detected_from_replicas(self, bft_network):
-    
-        """
-        1. Launch a cluster
-        2. Select a random client
-        3. Send a write request
-        4. Send another conflicting write request
-        5. Expected result: The received reply should be CONFLICT_DETECTED
-        """
-
-        bft_network.start_all_replicas()
-        skvbc = kvbc.SimpleKVBCProtocol(bft_network)
-        key = skvbc.random_key()
-
-        write_1 = skvbc.write_req(
-            readset=[],
-            writeset=[(key, skvbc.random_value())],
-            block_id=0)
-
-        write_2 = skvbc.write_req(
-            readset=[],
-            writeset=[(key, skvbc.random_value())],
-            block_id=0)
-
-        client = bft_network.random_client()
-
-        await client.write(write_1)
-        last_write_reply = await client.write(write_2)
-        last_write_reply = skvbc.parse_reply(last_write_reply)
-        last_block_id = last_write_reply.last_block_id
-
-        key_prime = skvbc.random_key()
-
-        # this write is conflicting because the writeset (key_prime) is
-        # based on an outdated version of the readset (key)
-        conflicting_write = skvbc.write_req(
-            readset=[key],
-            writeset=[(key_prime, skvbc.random_value())],
-            block_id=last_block_id - 1)
-
-        reply = await client.write_with_result(conflicting_write, result=bft_msgs.OperationResult.CONFLICT_DETECTED);
-        assert reply[1] == bft_msgs.OperationResult.CONFLICT_DETECTED, \
-                        f"Expected Reply={bft_msgs.OperationResult.CONFLICT_DETECTED}; actual={reply[1]}"
 
 
 if __name__ == '__main__':
