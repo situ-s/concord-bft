@@ -115,6 +115,8 @@ class ClientPoolConfig {
   const std::string CLIENT_BATCHING_MAX_MSG_NUM = "client_batching_max_messages_nbr";
   const std::string CLIENT_BATCHING_TIMEOUT_MILLI = "client_batching_flush_timeout_ms";
   const std::string TRACE_SAMPLING_RATE = "trace_sampling_rate";
+  const std::string REPLICA_HOST_UUID = "replica_host_uuid";
+  const std::string CLIENT_HOST_UUID = "client_host_uuid";
   ClientPoolConfig();
 
  private:
