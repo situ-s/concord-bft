@@ -525,6 +525,7 @@ class BftTestNetwork:
         The output is generated into the test folder to a folder called 'certs'.
         """
         certs_gen_script_path = os.path.join(self.builddir, "tests/simpleTest/scripts/create_tls_certs.sh")
+        print("Certs path", certs_gen_script_path)
         # If not running TLS, just exit here. keep certs_path to pass it by default to any type of replicas
         # We want to save time in non-TLs runs, avoiding certificate generation
         temp_cert_dir = self.certdir + "/tmp"
@@ -1655,6 +1656,7 @@ class BftTestNetwork:
             required_exchanges = self.config.n - 1 if full_key_exchange else 2 * self.config.f + self.config.c
             replicas_to_start = [r for r in range(self.config.n)] if replicas_to_start == [] else replicas_to_start
             self.start_replicas(replicas_to_start)
+            print("replicas_to_start", replicas_to_start)
             num_of_exchanged_replicas = 0
             with trio.fail_after(seconds=120):
                 for replica_id in replicas_to_start:

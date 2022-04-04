@@ -311,16 +311,15 @@ bool CertificateUtils::verifyCertificate(X509* cert_to_verify,
     return false;
   }
   remote_peer_id = remotePeerId;
-  std::string CN;
-  CN.resize(SIZE);
-  X509_NAME_get_text_by_NID(X509_get_subject_name(cert_to_verify), NID_commonName, CN.data(), SIZE);
-  std::string cert_type = "server";
-  if (CN.find("cli") != std::string::npos) cert_type = "client";
-  conn_type = cert_type;
+  // std::string CN;
+  // CN.resize(SIZE);
+  // X509_NAME_get_text_by_NID(X509_get_subject_name(cert_to_verify), NID_commonName, CN.data(), SIZE);
+  // std::string cert_type = "server";
+  // if (CN.find("cli") != std::string::npos) cert_type = "client";
+  // conn_type = cert_type;
 
   // Get the local stored certificate for this peer
-  std::string local_cert_path =
-      cert_root_directory + "/" + std::to_string(remotePeerId) + "/" + cert_type + "/" + cert_type + ".cert";
+  std::string local_cert_path = cert_root_directory + "/" + std::to_string(remotePeerId) + "/" + "tls.cert";
   auto deleter = [](FILE* fp) {
     if (fp) fclose(fp);
   };

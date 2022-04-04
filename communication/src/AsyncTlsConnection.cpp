@@ -345,16 +345,18 @@ void AsyncTlsConnection::initServerSSLContext() {
 
   fs::path path;
   try {
-    path = fs::path(config_.certificatesRootPath_) / fs::path(std::to_string(config_.selfId_)) / fs::path("server");
+    path = fs::path(config_.certificatesRootPath_) / fs::path(std::to_string(config_.selfId_));
+    LOG_INFO(logger_, "Server path" << path);
   } catch (std::exception& e) {
     LOG_FATAL(logger_, "Failed to construct filesystem path: " << e.what());
     ConcordAssert(false);
   }
 
   try {
-    ssl_context_.use_certificate_chain_file((path / fs::path("server.cert")).string());
+    ssl_context_.use_certificate_chain_file((path / fs::path("tls.cert")).string());
     const std::string pk = decryptPrivateKey(path);
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
+    LOG_INFO(logger_, "HERE");
   } catch (const boost::system::system_error& e) {
     LOG_FATAL(logger_, "Failed to load certificate or private key files from path: " << path << " : " << e.what());
     ConcordAssert(false);
@@ -447,8 +449,7 @@ std::pair<bool, NodeNum> AsyncTlsConnection::checkCertificate(X509* received_cer
     BIO_free(outbio);
     return std::make_pair(false, peerId);
   }
-  std::string local_cert_path =
-      config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + "tls.cert";
+  std::string local_cert_path = config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + "tls.cert";
 
   LOG_INFO(logger_, "print cert path : " << local_cert_path);
 
