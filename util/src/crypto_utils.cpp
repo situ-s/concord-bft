@@ -278,6 +278,7 @@ bool CertificateUtils::verifyCertificate(X509* cert_to_verify,
                                          uint32_t& remote_peer_id,
                                          std::string& conn_type) {
   // First get the source ID
+  LOG_INFO(GL, "verifyCertificate large");
   static constexpr size_t SIZE = 512;
   std::string subject(SIZE, 0);
   X509_NAME_oneline(X509_get_subject_name(cert_to_verify), subject.data(), SIZE);
@@ -286,6 +287,8 @@ bool CertificateUtils::verifyCertificate(X509* cert_to_verify,
   std::regex r("OU=\\d*", std::regex_constants::icase);
   std::smatch sm;
   regex_search(subject, sm, r);
+
+  LOG_INFO(GL, "Print Subject" << subject);
   if (sm.length() <= peerIdPrefixLength) {
     LOG_ERROR(GL, "OU not found or empty: " << subject);
     return false;
@@ -321,6 +324,8 @@ bool CertificateUtils::verifyCertificate(X509* cert_to_verify,
   auto deleter = [](FILE* fp) {
     if (fp) fclose(fp);
   };
+
+  LOG_INFO(GL, "Print path local " << local_cert_path);
   std::unique_ptr<FILE, decltype(deleter)> fp(fopen(local_cert_path.c_str(), "r"), deleter);
   if (!fp) {
     LOG_ERROR(GL, "Certificate file not found, path: " << local_cert_path);

@@ -284,7 +284,8 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
 
   fs::path path;
   try {
-    path = fs::path(config_.certificatesRootPath_) / fs::path(std::to_string(config_.selfId_)) / "client";
+    path = fs::path(config_.certificatesRootPath_) / fs::path(std::to_string(config_.selfId_));
+    LOG_INFO(logger_, "path" << path);
   } catch (std::exception& e) {
     LOG_FATAL(logger_, "Failed to construct filesystem path: " << e.what());
     ConcordAssert(false);
@@ -303,7 +304,7 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
   }
 
   try {
-    ssl_context_.use_certificate_chain_file((path / "client.cert").string());
+    ssl_context_.use_certificate_chain_file((path / "tls.cert").string());
     const std::string pk = decryptPrivateKey(path);
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
   } catch (const boost::system::system_error& e) {
@@ -322,6 +323,7 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
 }
 
 void AsyncTlsConnection::initServerSSLContext() {
+  LOG_INFO(logger_, "initServerSSLContext");
   auto self = std::weak_ptr(shared_from_this());
   ssl_context_.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert);
   ssl_context_.set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 |
@@ -385,6 +387,7 @@ void AsyncTlsConnection::initServerSSLContext() {
 }
 
 bool AsyncTlsConnection::verifyCertificateClient(asio::ssl::verify_context& ctx, NodeNum expected_dest_id) {
+  LOG_INFO(logger_, "verifyCertificateClient");
   if (X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT != X509_STORE_CTX_get_error(ctx.native_handle())) {
     return false;
   }
@@ -400,6 +403,7 @@ bool AsyncTlsConnection::verifyCertificateClient(asio::ssl::verify_context& ctx,
 }
 
 bool AsyncTlsConnection::verifyCertificateServer(asio::ssl::verify_context& ctx) {
+  LOG_INFO(logger_, "verifyCertificateServer");
   if (X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT != X509_STORE_CTX_get_error(ctx.native_handle())) {
     return false;
   }
@@ -415,6 +419,7 @@ bool AsyncTlsConnection::verifyCertificateServer(asio::ssl::verify_context& ctx)
 
 std::pair<bool, NodeNum> AsyncTlsConnection::checkCertificate(X509* received_cert,
                                                               std::optional<NodeNum> expected_peer_id) {
+  LOG_INFO(logger_, "checkCertificate");
   uint32_t peerId = UINT32_MAX;
   std::string conn_type;
   // (1) First, try to verify the certificate against the latest saved certificate
@@ -443,7 +448,10 @@ std::pair<bool, NodeNum> AsyncTlsConnection::checkCertificate(X509* received_cer
     return std::make_pair(false, peerId);
   }
   std::string local_cert_path =
-      config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + conn_type + "/" + conn_type + ".cert";
+      config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + "tls.cert";
+
+  LOG_INFO(logger_, "print cert path : " << local_cert_path);
+
   std::string certStr;
   int certLen = BIO_pending(outbio);
   certStr.resize(certLen);
