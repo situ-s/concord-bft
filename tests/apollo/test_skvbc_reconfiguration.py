@@ -1328,7 +1328,6 @@ class SkvbcReconfigurationTest(ApolloTest):
         crashed_replicas = set(range(replica_count - 2, replica_count))
         await self.send_restart_with_params(bft_network, bft=True, restart=True, faulty_replica_ids=crashed_replicas)
 
-    @unittest.skip("Unstable test - BC-19690")
     @with_trio
     @with_bft_network(start_replica_cmd_with_key_exchange, selected_configs=lambda n, f, c: n == 7, rotate_keys=True, publish_master_keys=True)
     async def test_remove_nodes(self, bft_network):
@@ -1974,6 +1973,7 @@ class SkvbcReconfigurationTest(ApolloTest):
                 succ = True
                 for r in replicas:
                     curr_epoch = await bft_network.get_metric(r, bft_network, "Gauges", "epoch_number", component="epoch_manager")
+                    print("Replica_ID:", r, " Curr_epoch:", curr_epoch)
                     if curr_epoch != epoch_number:
                         succ = False
                         break

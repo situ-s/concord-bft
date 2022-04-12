@@ -129,7 +129,9 @@ void run_replica(int argc, char** argv) {
       [argv, &setup]() {
         setup->GetCommunication()->stop();
         setup->GetMetricsServer().Stop();
-        execv(argv[0], argv);
+        LOG_INFO(GL, "SS--Restart Replica");
+        int ret_val = execv(argv[0], argv);
+        LOG_INFO(GL, "Execv ret_value" << ret_val);
       },
       static_cast<uint8_t>(ReplicaRestartReadyMsg::Reason::Scale));
 

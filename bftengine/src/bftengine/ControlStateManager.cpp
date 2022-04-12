@@ -62,13 +62,20 @@ void ControlStateManager::onRestartProof(const SeqNum& seq_num, uint8_t reason) 
   if ((restartBftEnabled_ && IControlHandler::instance()->isOnStableCheckpoint()) ||
       IControlHandler::instance()->isOnNOutOfNCheckpoint()) {
     auto seq_num_to_stop_at = getCheckpointToStopAt();
+    LOG_INFO(GL,
+             "SS--" << KVLOG(restartBftEnabled_,
+                             IControlHandler::instance()->isOnStableCheckpoint(),
+                             IControlHandler::instance()->isOnNOutOfNCheckpoint()));
     if (seq_num_to_stop_at.has_value() && seq_num) {
       // A nasty hack to allow state transfer replicas to get the update in high probability - we are going to sleep for
       // 10 seconds, assuming that it is enough for state transfer replicas to get the state change and perform the
       // update
+      LOG_INFO(GL, "SS-- seq_num" << seq_num);
       if (reason == static_cast<uint8_t>(ReplicaRestartReadyMsg::Reason::Scale))
         std::this_thread::sleep_for(std::chrono::seconds(10));
       hasRestartProofAtSeqNum_[reason] = seq_num;
+      int size = onRestartProofCbRegistry_.size();
+      LOG_INFO(GL, "On restart proof" << reason << seq_num << "Size" << size);
       for (const auto& kv : onRestartProofCbRegistry_[reason]) {
         kv.second.invokeAll();
       }
