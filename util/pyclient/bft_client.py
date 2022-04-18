@@ -436,7 +436,8 @@ class TcpTlsClient(BftClient):
     """
     # In create_tls_certs.sh - openssl command line utility uses CN(certificate name) in the subj field.
     # This is the host name (domain name) to be verified.
-    CERT_DOMAIN_FORMAT="node%dser"
+    CERT_DOMAIN_FORMAT="node%d"
+
     # Taken from TlsTCPCommunication.cpp (we prefer hard-code and not to parse the file)
     MSG_LEN_SIZE = 4
     ENDPOINT_SIZE = 8
@@ -461,7 +462,7 @@ class TcpTlsClient(BftClient):
         where node type is "server" or "client".
         """
         cert_type = "client" if is_client else "server"
-        return os.path.join(self.config.certs_path, str(replica_id), cert_type, "pk.pem")
+        return os.path.join(self.config.certs_path, str(replica_id), "pk.pem")
 
     def _get_cert_path(self, replica_id, *, is_client):
         """
@@ -469,7 +470,7 @@ class TcpTlsClient(BftClient):
         where node type is "server" or "client".
         """
         cert_type = "client" if is_client else "server"
-        return os.path.join(self.config.certs_path, str(replica_id), cert_type, cert_type + ".cert")
+        return os.path.join(self.config.certs_path, str(replica_id), "node.cert")
 
     async def _close_ssl_stream(self, dest_addr):
         """ Delete and close SSL stream from self.ssl_streams """
@@ -491,7 +492,9 @@ class TcpTlsClient(BftClient):
         if self.exit_flag:
             return
         server_cert_path = self._get_cert_path(dest_replica.id, is_client=False)
+        #print("Server path", server_cert_path)
         client_cert_path = self._get_cert_path(self.client_id, is_client=True)
+        #print("Client_path", client_cert_path)
         client_pk_path = self._get_private_key_path(self.client_id, is_client=True)
         # Create an SSl context - enable CERT_REQUIRED and check_hostname = True
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -501,6 +504,7 @@ class TcpTlsClient(BftClient):
         ssl_context.load_cert_chain(client_cert_path, client_pk_path)
         # Server hostname to be verified must be taken from create_tls_certs.sh
         server_hostname = self.CERT_DOMAIN_FORMAT % dest_replica.id
+        print("server host name", server_hostname)
         dest_addr = (dest_replica.ip, dest_replica.port)
         ssl_stream = tcp_stream = None
         # initial state of the event should be True, we want to connect

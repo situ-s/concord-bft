@@ -255,7 +255,7 @@ class ReplicaConfig : public concord::serialize::SerializableFactory<ReplicaConf
 
   CONFIG_PARAM(enableMultiplexChannel, bool, false, "whether multiplex communication channel is enabled")
 
-  CONFIG_PARAM(useUnifiedCertificates, bool, false, "A flag to use unified Certificates");
+  CONFIG_PARAM(useUnifiedCertificates, bool, true, "A flag to use unified Certificates");
 
   CONFIG_PARAM(adaptivePruningIntervalDuration,
                std::chrono::milliseconds,

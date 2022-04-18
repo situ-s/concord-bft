@@ -45,6 +45,7 @@ class SkvbcTest(ApolloTest):
 
     __test__ = False  # so that PyTest ignores this test scenario
 
+    @unittest.skip("Hi")
     @with_trio
     @with_bft_network(start_replica_cmd)
     async def test_request_missing_data_from_previous_window(self, bft_network, exchange_keys=True):
@@ -95,6 +96,7 @@ class SkvbcTest(ApolloTest):
 
         await skvbc.assert_successful_put_get()
 
+    @unittest.skip("Hi")
     @with_trio
     @with_bft_network(start_replica_cmd)
     async def test_primary_down_while_initial_key_exchange(self, bft_network):
@@ -132,6 +134,7 @@ class SkvbcTest(ApolloTest):
                 await trio.sleep(1)
                 seqNum =  await bft_network.get_metric(0, bft_network, "Gauges", "lastExecutedSeqNum")
 
+    @unittest.skip("Hi")
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_get_block_data_with_blinking_replica(self, bft_network):
@@ -198,6 +201,7 @@ class SkvbcTest(ApolloTest):
         kv2 = skvbc.parse_reply(data)
         self.assertDictEqual(kv2, dict(kv))
 
+    @unittest.skip("Hi")
     @with_trio
     @with_bft_network(start_replica_cmd)
     async def test_conflicting_write(self, bft_network, rotate_keys=True):
