@@ -39,10 +39,12 @@
 #include "thin_replica.grpc.pb.h"
 #include "subscription_buffer.hpp"
 #include "trs_metrics.hpp"
+#include <experimental/filesystem>
 
 using google::protobuf::util::TimeUtil;
 using namespace std::chrono_literals;
 
+namespace fs = std::experimental::filesystem;
 namespace concord {
 namespace thin_replica {
 
@@ -689,6 +691,16 @@ class ThinReplicaImpl {
       result = buffer.data();
       // parse the OU i.e., the client id from the subject field
       cert_ou_field_set.insert(parseClientIdFromSubject(result));
+    }
+  }
+
+  static void getClientIdSetFromRootCert(logging::Logger logger_,
+                                         const std::string& root_cert_path,
+                                         std::unordered_set<std::string>& cert_ou_field_set) {
+    for (auto& p : fs::recursive_directory_iterator(root_cert_path)) {
+      if ((p.path().filename().string()).compare("node.cert") == 0) {
+        getClientIdFromRootCert(logger_, p.path().string(), cert_ou_field_set);
+      }
     }
   }
 

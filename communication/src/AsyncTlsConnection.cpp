@@ -310,6 +310,7 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
   try {
     cert_path =
         (useUnifiedCertificates_) ? path / fs::path("node.cert").string() : path / fs::path("client.cert").string();
+    LOG_INFO(logger_, "Client CERTS_TEST: Use_unified_certs" << useUnifiedCertificates_ << "Path: " << cert_path);
     ssl_context_.use_certificate_chain_file(cert_path);
     const std::string pk = decryptPrivateKey(path);
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
@@ -361,6 +362,7 @@ void AsyncTlsConnection::initServerSSLContext() {
   try {
     cert_path =
         (useUnifiedCertificates_) ? path / fs::path("node.cert").string() : path / fs::path("server.cert").string();
+    LOG_INFO(logger_, "Server CERTS_TEST: Use_unified_certs" << useUnifiedCertificates_ << "Path: " << cert_path);
     ssl_context_.use_certificate_chain_file(cert_path);
     const std::string pk = decryptPrivateKey(path);
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
