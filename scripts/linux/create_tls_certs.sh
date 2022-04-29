@@ -22,11 +22,6 @@ if [ "$#" -eq 0 ] || [ -z "$1" ]; then
    exit 1
 fi
 
-dir=$2
-if [ -z "$dir" ]; then
-   dir="certs"
-fi
-
 start_node_id=$3
 if [ -z "$start_node_id" ]; then
    start_node_id=0
@@ -39,6 +34,12 @@ use_unified_certificates=false
 
 if [ "$use_unified_certificates" = true ]; then
    echo "Use Unified Certificates"
+
+   dir=$2
+   if [ -z "$dir" ]; then
+      dir="tls_certs"
+   fi
+
    while [ $i -le $last_node_id ]; do
       echo "processing replica $i/$last_node_id"
       certDir=$dir/$i
@@ -56,6 +57,11 @@ if [ "$use_unified_certificates" = true ]; then
       (( i=i+1 ))
    done  
 else 
+   dir=$2
+   if [ -z "$dir" ]; then
+      dir="certs"
+   fi
+
    while [ $i -le $last_node_id ]; do
       echo "processing replica $i/$last_node_id"
       clientDir=$dir/$i/client

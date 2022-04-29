@@ -127,10 +127,14 @@ void parseConfigFile(ConcordClientConfig& config, const YAML::Node& yaml) {
   std::string comm;
   readYamlField(yaml, "comm_to_use", comm);
   if (comm == "tls") {
+    LOG_INFO(logger, "SS--Use tls");
     comm_type = concord::client::concordclient::TransportConfig::TlsTcp;
     readYamlField(yaml, "tls_certificates_folder_path", config.transport.tls_cert_root_path);
     readYamlField(yaml, "tls_cipher_suite_list", config.transport.tls_cipher_suite);
     readYamlField(yaml, "use_unified_certificates", config.transport.use_unified_certs);
+    LOG_INFO(logger,
+             "SS-- tls_path" << config.transport.tls_cert_root_path << "Use_unified_certs"
+                             << config.transport.use_unified_certs);
   } else if (comm == "udp") {
     comm_type = concord::client::concordclient::TransportConfig::PlainUdp;
   } else {
@@ -166,19 +170,31 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
                            const std::string& tr_id,
                            bool is_insecure,
                            const std::string& tls_path) {
-  config.subscribe_config.id = tr_id;
   config.subscribe_config.use_tls = not is_insecure;
+  std::string cert_client_id;
+  std::string client_cert_path;
 
   if (config.subscribe_config.use_tls) {
-    LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
-    const std::string client_cert_path =
-        (config.transport.use_unified_certs) ? tls_path + "/node.cert" : tls_path + "/client.cert";
+    if (config.transport.use_unified_certs) {
+      LOG_INFO(logger,
+               "Unification of certificates: " << config.transport.use_unified_certs << "Certificate path"
+                                               << config.transport.tls_cert_root_path);
+      config.subscribe_config.id = std::to_string(config.client_service.id.val);
+      std::string base_path = config.transport.tls_cert_root_path + "/" + std::to_string(config.client_service.id.val);
+      client_cert_path = base_path + "/node.cert";
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, base_path);
+    } else {
+      LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
+      config.subscribe_config.id = tr_id;
+      client_cert_path = tls_path + "/client.cert";
 
-    readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+    }
 
-    config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+    cert_client_id = getClientIdFromClientCert(client_cert_path);
 
-    std::string cert_client_id = getClientIdFromClientCert(client_cert_path);
     // The client cert must have the client ID in the OU field, because the TRS obtains
     // the client_id from the certificate of the connecting client.
     if (cert_client_id.empty()) {
@@ -211,7 +227,7 @@ void configureTransport(concord::client::concordclient::ConcordClientConfig& con
     std::string server_cert_path;
     if (config.transport.use_unified_certs) {
       for (size_t i = 0; i < config.topology.replicas.size(); ++i) {
-        server_cert_path = tls_path + std::to_string(i) + "/node.cert";
+        server_cert_path = config.transport.tls_cert_root_path + "/" + std::to_string(i) + "/node.cert";
         std::string out_certs = "";
         readCert(server_cert_path, out_certs);
         config.transport.event_pem_certs += out_certs;
