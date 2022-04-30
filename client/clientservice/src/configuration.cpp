@@ -127,9 +127,14 @@ void parseConfigFile(ConcordClientConfig& config, const YAML::Node& yaml) {
   std::string comm;
   readYamlField(yaml, "comm_to_use", comm);
   if (comm == "tls") {
+    LOG_INFO(logger, "TLS is enabled");
     comm_type = concord::client::concordclient::TransportConfig::TlsTcp;
     readYamlField(yaml, "tls_certificates_folder_path", config.transport.tls_cert_root_path);
     readYamlField(yaml, "tls_cipher_suite_list", config.transport.tls_cipher_suite);
+    readYamlField(yaml, "use_unified_certificates", config.transport.use_unified_certs);
+    LOG_INFO(logger,
+             "Certificate Path: " << config.transport.tls_cert_root_path << "Use_unified_certs"
+                                  << config.transport.use_unified_certs);
   } else if (comm == "udp") {
     comm_type = concord::client::concordclient::TransportConfig::PlainUdp;
   } else {
@@ -165,18 +170,35 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
                            const std::string& tr_id,
                            bool is_insecure,
                            const std::string& tls_path) {
-  config.subscribe_config.id = tr_id;
   config.subscribe_config.use_tls = not is_insecure;
+  std::string cert_client_id;
+  std::string client_cert_path;
 
   if (config.subscribe_config.use_tls) {
-    LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
-    const std::string client_cert_path = tls_path + "/client.cert";
+    if (config.transport.use_unified_certs) {
+      LOG_INFO(logger,
+               "TLS for thin replica client is enabled, Unification of certificates: "
+                   << config.transport.use_unified_certs << "Certificate path" << config.transport.tls_cert_root_path);
+      config.subscribe_config.id = std::to_string(config.client_service.id.val);
+      std::string base_path = config.transport.tls_cert_root_path + "/" + std::to_string(config.client_service.id.val);
+      client_cert_path = base_path + "/node.cert";
 
-    readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      LOG_INFO(logger, "Client cert path" << client_cert_path);
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, base_path);
 
-    config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+    } else {
+      LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
+      config.subscribe_config.id = tr_id;
+      client_cert_path = tls_path + "/client.cert";
 
-    std::string cert_client_id = getClientIdFromClientCert(client_cert_path);
+      LOG_INFO(logger, "Client cert path" << client_cert_path);
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+    }
+
+    cert_client_id = getClientIdFromClientCert(client_cert_path);
+
     // The client cert must have the client ID in the OU field, because the TRS obtains
     // the client_id from the certificate of the connecting client.
     if (cert_client_id.empty()) {
@@ -206,11 +228,26 @@ void configureTransport(concord::client::concordclient::ConcordClientConfig& con
                         bool is_insecure,
                         const std::string& tls_path) {
   if (not is_insecure) {
-    const std::string server_cert_path = tls_path + "/server.cert";
-    // read server TLS certs for this TRC instance
-    // server_cert_path specifies the path to a composite cert file i.e., a
-    // concatentation of the certificates of all known servers
-    readCert(server_cert_path, config.transport.event_pem_certs);
+    std::string server_cert_path;
+    if (config.transport.use_unified_certs) {
+      for (size_t i = 0; i < config.topology.replicas.size(); ++i) {
+        server_cert_path = config.transport.tls_cert_root_path + "/" + std::to_string(i) + "/node.cert";
+        LOG_INFO(logger, "Sever certs path" << server_cert_path);
+        std::string out_certs = "";
+        readCert(server_cert_path, out_certs);
+        LOG_INFO(logger, "Resulted cert" << out_certs);
+        config.transport.event_pem_certs += out_certs;
+        LOG_INFO(logger, "Event_pem_certs cert" << config.transport.event_pem_certs);
+      }
+    } else {
+      server_cert_path = tls_path + "/server.cert";
+      LOG_INFO(logger, "Sever certs path" << server_cert_path);
+      // read server TLS certs for this TRC instance
+      // server_cert_path specifies the path to a composite cert file i.e., a
+      // concatentation of the certificates of all known servers
+      readCert(server_cert_path, config.transport.event_pem_certs);
+      LOG_INFO(logger, "event_pem_certs cert" << config.transport.event_pem_certs);
+    }
   }
 }
 

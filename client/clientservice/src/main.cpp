@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
   ConcordClientConfig config;
   try {
     auto yaml = YAML::LoadFile(opts["config"].as<std::string>());
+    LOG_INFO(logger, "Config file path" << opts["config"].as<std::string>());
     parseConfigFile(config, yaml);
     std::optional<std::string> secrets_url = std::nullopt;
     if (opts.count("secrets-url") && config.topology.encrypted_config_enabled) {
