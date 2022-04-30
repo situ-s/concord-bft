@@ -126,11 +126,20 @@ void ConcordClient::send(const bft::client::WriteConfig& config,
 
 void ConcordClient::createGrpcConnections() {
   for (const auto& replica : config_.topology.replicas) {
-    auto addr = replica.host + ":" + std::to_string(replica.event_port);
+    std::string addr;
+    if (config_.transport.use_unified_certs)
+      addr = "host_uuid" + std::to_string(replica.id.val) + ":" + std::to_string(replica.event_port);
+    else
+      addr = replica.host + ":" + std::to_string(replica.event_port);
     auto grpc_conn = std::make_shared<GrpcConnection>(
         addr, config_.subscribe_config.id, /* TODO */ 3, /* TODO */ 3, config_.state_snapshot_config.timeout_in_sec);
 
     // TODO: Adapt TRC API to support PEM buffers
+    LOG_INFO(logger_,
+             "SS GRPC--"
+                 << "tls:" << config_.subscribe_config.use_tls << "pkey" << config_.subscribe_config.pem_private_key
+                 << "chain" << config_.subscribe_config.pem_cert_chain << "certs" << config_.transport.event_pem_certs
+                 << "addr" << addr);
     auto trsc_config = std::make_unique<GrpcConnectionConfig>(config_.subscribe_config.use_tls,
                                                               config_.subscribe_config.pem_private_key,
                                                               config_.subscribe_config.pem_cert_chain,

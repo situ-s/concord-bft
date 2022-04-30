@@ -53,9 +53,12 @@ void GrpcConnection::createChannel() {
   args.SetMaxReceiveMessageSize(kGrpcMaxInboundMsgSizeInBytes);
   if (config_->use_tls) {
     LOG_INFO(logger_, "TLS for thin replica client is enabled for server: " << address_);
-
+    LOG_INFO(logger_,
+             "SS--"
+                 << "Server cert" << config_->server_cert << "Client cert" << config_->client_cert);
     grpc::SslCredentialsOptions opts = {config_->server_cert, config_->client_key, config_->client_cert};
     channel_ = grpc::CreateCustomChannel(address_, grpc::SslCredentials(opts), args);
+    LOG_INFO(logger_, "Create channel completed");
   } else {
     LOG_WARN(logger_,
              "TLS for thin replica client is disabled, falling back to "

@@ -182,13 +182,17 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
       config.subscribe_config.id = std::to_string(config.client_service.id.val);
       std::string base_path = config.transport.tls_cert_root_path + "/" + std::to_string(config.client_service.id.val);
       client_cert_path = base_path + "/node.cert";
+
+      LOG_INFO(logger, "SS-- Client cert path" << client_cert_path);
       readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
       config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, base_path);
+
     } else {
       LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
       config.subscribe_config.id = tr_id;
       client_cert_path = tls_path + "/client.cert";
 
+      LOG_INFO(logger, "no unify SS-- Client cert path" << client_cert_path);
       readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
       config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
     }
@@ -228,16 +232,21 @@ void configureTransport(concord::client::concordclient::ConcordClientConfig& con
     if (config.transport.use_unified_certs) {
       for (size_t i = 0; i < config.topology.replicas.size(); ++i) {
         server_cert_path = config.transport.tls_cert_root_path + "/" + std::to_string(i) + "/node.cert";
+        LOG_INFO(logger, "SS--Sever certs path" << server_cert_path);
         std::string out_certs = "";
         readCert(server_cert_path, out_certs);
+        LOG_INFO(logger, "SS--Resulted cert" << out_certs);
         config.transport.event_pem_certs += out_certs;
+        LOG_INFO(logger, "SS--event_pem_certs cert" << config.transport.event_pem_certs);
       }
     } else {
       server_cert_path = tls_path + "/server.cert";
+      LOG_INFO(logger, "not unify SS--Sever certs path" << server_cert_path);
       // read server TLS certs for this TRC instance
       // server_cert_path specifies the path to a composite cert file i.e., a
       // concatentation of the certificates of all known servers
       readCert(server_cert_path, config.transport.event_pem_certs);
+      LOG_INFO(logger, "not unify SS--event_pem_certs cert" << config.transport.event_pem_certs);
     }
   }
 }
