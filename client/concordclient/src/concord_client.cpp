@@ -139,7 +139,7 @@ void ConcordClient::createGrpcConnections() {
              "GRPC--"
                  << "tls:" << config_.subscribe_config.use_tls << "pkey" << config_.subscribe_config.pem_private_key
                  << "chain" << config_.subscribe_config.pem_cert_chain << "certs" << config_.transport.event_pem_certs
-                 << "addr" << addr);
+                 << "addr" << addr << "Subscribe id" << config_.subscribe_config.id);
     auto trsc_config = std::make_unique<GrpcConnectionConfig>(config_.subscribe_config.use_tls,
                                                               config_.subscribe_config.pem_private_key,
                                                               config_.subscribe_config.pem_cert_chain,
@@ -167,6 +167,7 @@ void ConcordClient::checkAndReConnectGrpcConnections() {
       (grpc_connections_[con_offset])->checkAndReConnect(trsc_config);
     }
   }
+  LOG_INFO(logger_, "SS-- Check and Reconnect Done");
 }
 
 void ConcordClient::subscribe(const SubscribeRequest& sub_req,
@@ -177,7 +178,7 @@ void ConcordClient::subscribe(const SubscribeRequest& sub_req,
     LOG_ERROR(logger_, "subscription already in progress - unsubscribe first");
     throw SubscriptionExists();
   }
-
+  LOG_INFO(logger_, "SS-- start subscribe with client id" << config_.subscribe_config.id);
   checkAndReConnectGrpcConnections();
 
   auto trc_config = std::make_unique<ThinReplicaClientConfig>(
@@ -189,6 +190,7 @@ void ConcordClient::subscribe(const SubscribeRequest& sub_req,
     trc_request.event_group_id = std::get<EventGroupRequest>(sub_req.request).event_group_id;
     trc_->Subscribe(trc_request);
   } else if (std::holds_alternative<LegacyEventRequest>(sub_req.request)) {
+    LOG_INFO(logger_, "SS-- subscribe for legacy events");
     trc_->Subscribe(std::get<LegacyEventRequest>(sub_req.request).block_id);
   } else {
     ConcordAssert(false);

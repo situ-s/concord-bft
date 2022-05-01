@@ -169,6 +169,7 @@ void GrpcConnection::cancelDataStream() {
 bool GrpcConnection::hasDataStream() { return bool(data_stream_); }
 
 GrpcConnection::Result GrpcConnection::readData(Data* data) {
+  LOG_INFO(logger_, "Read data");
   ConcordAssertNE(data_stream_, nullptr);
   ConcordAssertNE(data_context_, nullptr);
 
@@ -188,6 +189,7 @@ GrpcConnection::Result GrpcConnection::readData(Data* data) {
   auto grpc_status = data_stream_->Finish();
   if (grpc_status.error_code() == grpc::StatusCode::OUT_OF_RANGE) return Result::kOutOfRange;
   if (grpc_status.error_code() == grpc::StatusCode::NOT_FOUND) return Result::kNotFound;
+  LOG_INFO(logger_, "#################RETURNING K FAILURE RESULT########");
   return Result::kFailure;
 }
 

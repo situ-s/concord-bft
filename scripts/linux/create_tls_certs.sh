@@ -30,7 +30,7 @@ fi
 i=$start_node_id
 last_node_id=$((i + $1 - 1))
 
-use_unified_certificates=false
+use_unified_certificates=true
 
 if [ "$use_unified_certificates" = true ]; then
    echo "Use Unified Certificates"

@@ -362,10 +362,15 @@ void AsyncTlsConnection::initServerSSLContext() {
   try {
     cert_path =
         (useUnifiedCertificates_) ? path / fs::path("node.cert").string() : path / fs::path("server.cert").string();
-    LOG_INFO(logger_, "Server Certificate: Use_unified_certs" << useUnifiedCertificates_ << "Path: " << cert_path);
+    LOG_INFO(logger_,
+             "Server Certificate: Use_unified_certs" << useUnifiedCertificates_ << "Path: " << cert_path << "Key path"
+                                                     << path);
     ssl_context_.use_certificate_chain_file(cert_path);
+    LOG_INFO(logger_, "Used in ssl context");
     const std::string pk = decryptPrivateKey(path);
+    LOG_INFO(logger_, "pk decrypted");
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
+    LOG_INFO(logger_, "pk used");
   } catch (const boost::system::system_error& e) {
     LOG_FATAL(logger_, "Failed to load certificate or private key files from path: " << path << " : " << e.what());
     ConcordAssert(false);

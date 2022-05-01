@@ -436,7 +436,14 @@ class TcpTlsClient(BftClient):
     """
     # In create_tls_certs.sh - openssl command line utility uses CN(certificate name) in the subj field.
     # This is the host name (domain name) to be verified.
-    CERT_DOMAIN_FORMAT="node%dser"
+    global use_unified_certs
+    use_unified_certs = True
+
+    if (use_unified_certs):
+        CERT_DOMAIN_FORMAT="node%d"
+    else:
+        CERT_DOMAIN_FORMAT="node%dser"
+
     # Taken from TlsTCPCommunication.cpp (we prefer hard-code and not to parse the file)
     MSG_LEN_SIZE = 4
     ENDPOINT_SIZE = 8
@@ -461,6 +468,8 @@ class TcpTlsClient(BftClient):
         where node type is "server" or "client".
         """
         cert_type = "client" if is_client else "server"
+        if (use_unified_certs):
+            return os.path.join(self.config.certs_path, str(replica_id), "pk.pem")
         return os.path.join(self.config.certs_path, str(replica_id), cert_type, "pk.pem")
 
     def _get_cert_path(self, replica_id, *, is_client):
@@ -469,6 +478,8 @@ class TcpTlsClient(BftClient):
         where node type is "server" or "client".
         """
         cert_type = "client" if is_client else "server"
+        if (use_unified_certs):
+            return os.path.join(self.config.certs_path, str(replica_id), "node.cert")
         return os.path.join(self.config.certs_path, str(replica_id), cert_type, cert_type + ".cert")
 
     async def _close_ssl_stream(self, dest_addr):

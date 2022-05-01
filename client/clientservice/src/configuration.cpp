@@ -179,14 +179,27 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
       LOG_INFO(logger,
                "TLS for thin replica client is enabled, Unification of certificates: "
                    << config.transport.use_unified_certs << "Certificate path" << config.transport.tls_cert_root_path);
-      config.subscribe_config.id = std::to_string(config.client_service.id.val);
+      config.subscribe_config.id = "host_uuid" + std::to_string(config.client_service.id.val);
       std::string base_path = config.transport.tls_cert_root_path + "/" + std::to_string(config.client_service.id.val);
       client_cert_path = base_path + "/node.cert";
 
-      LOG_INFO(logger, "Client cert path" << client_cert_path);
+      LOG_INFO(logger, "Client cert path" << client_cert_path << "Client ID" << config.subscribe_config.id);
       readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
       config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, base_path);
 
+      cert_client_id = getClientIdFromClientCert(client_cert_path);
+
+      if (cert_client_id.empty()) {
+        LOG_FATAL(logger, "Failed to construct concord client.");
+        throw std::runtime_error("The OU field in client certificate is empty. It must contain the client ID.");
+      }
+
+      if (cert_client_id.compare(std::to_string(config.client_service.id.val)) != 0) {
+        LOG_FATAL(logger, "Failed to construct concord client.");
+        throw std::runtime_error("The client ID in the OU field of the client certificate (" + cert_client_id +
+                                 ") does not match the client ID in the environment variable (" +
+                                 std::to_string(config.client_service.id.val) + ").");
+      }
     } else {
       LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
       config.subscribe_config.id = tr_id;
@@ -195,27 +208,27 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
       LOG_INFO(logger, "Client cert path" << client_cert_path);
       readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
       config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
-    }
 
-    cert_client_id = getClientIdFromClientCert(client_cert_path);
+      cert_client_id = getClientIdFromClientCert(client_cert_path);
 
-    // The client cert must have the client ID in the OU field, because the TRS obtains
-    // the client_id from the certificate of the connecting client.
-    if (cert_client_id.empty()) {
-      LOG_FATAL(logger, "Failed to construct concord client.");
-      throw std::runtime_error("The OU field in client certificate is empty. It must contain the client ID.");
-    }
-    // cert_client_id in client cert should match the client_id if TLS is
-    // enabled for TRC-TRS connection. Since the TRS reads the client id from
-    // the connecting client cert, and the value of the TRID specified by the
-    // user for TRC initialization can be used by TRC's client application to
-    // generate requests, if they do not match, the TRS will filter out all the
-    // key value pairs meant for the requesting client.
-    if (cert_client_id.compare(config.subscribe_config.id) != 0) {
-      LOG_FATAL(logger, "Failed to construct concord client.");
-      throw std::runtime_error("The client ID in the OU field of the client certificate (" + cert_client_id +
-                               ") does not match the client ID in the environment variable (" +
-                               config.subscribe_config.id + ").");
+      // The client cert must have the client ID in the OU field, because the TRS obtains
+      // the client_id from the certificate of the connecting client.
+      if (cert_client_id.empty()) {
+        LOG_FATAL(logger, "Failed to construct concord client.");
+        throw std::runtime_error("The OU field in client certificate is empty. It must contain the client ID.");
+      }
+      // cert_client_id in client cert should match the client_id if TLS is
+      // enabled for TRC-TRS connection. Since the TRS reads the client id from
+      // the connecting client cert, and the value of the TRID specified by the
+      // user for TRC initialization can be used by TRC's client application to
+      // generate requests, if they do not match, the TRS will filter out all the
+      // key value pairs meant for the requesting client.
+      if (cert_client_id.compare(config.subscribe_config.id) != 0) {
+        LOG_FATAL(logger, "Failed to construct concord client.");
+        throw std::runtime_error("The client ID in the OU field of the client certificate (" + cert_client_id +
+                                 ") does not match the client ID in the environment variable (" +
+                                 config.subscribe_config.id + ").");
+      }
     }
   } else {
     LOG_WARN(logger,

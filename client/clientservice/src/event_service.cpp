@@ -41,7 +41,7 @@ Status EventServiceImpl::Subscribe(ServerContext* context,
                                    const SubscribeRequest* proto_request,
                                    ServerWriter<SubscribeResponse>* stream) {
   cc::SubscribeRequest request;
-
+  LOG_INFO(logger_, "Subscribe here");
   if (proto_request->has_event_groups()) {
     cc::EventGroupRequest eg_request;
     eg_request.event_group_id = proto_request->event_groups().event_group_id();
@@ -60,17 +60,19 @@ Status EventServiceImpl::Subscribe(ServerContext* context,
   auto span = opentracing::Tracer::Global()->StartSpan("subscribe", {});
   std::shared_ptr<cc::EventUpdateQueue> update_queue = std::make_shared<cc::BasicEventUpdateQueue>();
   client_->subscribe(request, update_queue, span);
-
+  LOG_INFO(logger_, "Subscription done");
   // TODO: Return UNAVAILABLE as documented in event.proto if ConcordClient is unhealthy
   auto status = grpc::Status::OK;
   std::chrono::steady_clock::time_point start_aggregator_timer = std::chrono::steady_clock::now();
   while (!context->IsCancelled()) {
+    LOG_INFO(logger_, "Inside while");
     SubscribeResponse response;
     std::unique_ptr<EventVariant> update;
     try {
       // We need to check if the client cancelled the subscription.
       // Therefore, we cannot block via pop().
       update = update_queue->popTill(10ms);
+      LOG_INFO(logger_, "Inside try log update" << (update == NULL));
     } catch (const UpdateNotFound& e) {
       status = grpc::Status(grpc::StatusCode::NOT_FOUND, e.what());
       break;
@@ -89,10 +91,11 @@ Status EventServiceImpl::Subscribe(ServerContext* context,
     }
 
     if (not update) {
+      LOG_INFO(logger_, " in not update");
       continue;
     }
     std::chrono::steady_clock::time_point start_processing = std::chrono::steady_clock::now(), end_processing;
-
+    LOG_INFO(logger_, "Start Processing");
     if (std::holds_alternative<cc::EventGroup>(*update)) {
       auto& event_group_in = std::get<cc::EventGroup>(*update);
       EventGroup proto_event_group;
@@ -149,7 +152,7 @@ Status EventServiceImpl::Subscribe(ServerContext* context,
       start_aggregator_timer = std::chrono::steady_clock::now();
     }
   }
-
+  LOG_INFO(logger_, "Unsubscribe now");
   client_->unsubscribe();
   return status;
 }
