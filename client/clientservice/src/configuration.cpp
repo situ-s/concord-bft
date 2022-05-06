@@ -130,6 +130,7 @@ void parseConfigFile(ConcordClientConfig& config, const YAML::Node& yaml) {
     comm_type = concord::client::concordclient::TransportConfig::TlsTcp;
     readYamlField(yaml, "tls_certificates_folder_path", config.transport.tls_cert_root_path);
     readYamlField(yaml, "tls_cipher_suite_list", config.transport.tls_cipher_suite);
+    readYamlField(yaml, "use_unified_certificates", config.transport.use_unified_certs);
   } else if (comm == "udp") {
     comm_type = concord::client::concordclient::TransportConfig::PlainUdp;
   } else {
@@ -145,6 +146,10 @@ void parseConfigFile(ConcordClientConfig& config, const YAML::Node& yaml) {
 
   readYamlField(node["participant_node"][0], "participant_node_host", config.client_service.host);
   readYamlField(node["participant_node"][0], "principal_id", config.client_service.id.val);
+
+  if (config.transport.use_unified_certs) {
+    readYamlField(node["participant_node"][0], "clientservice_host_uuid", config.client_service.host_uuid);
+  }
 
   for (const auto& item : node["participant_node"][0]["external_clients"]) {
     ConcordAssert(item.IsMap());
@@ -165,18 +170,33 @@ void configureSubscription(concord::client::concordclient::ConcordClientConfig& 
                            const std::string& tr_id,
                            bool is_insecure,
                            const std::string& tls_path) {
-  config.subscribe_config.id = tr_id;
   config.subscribe_config.use_tls = not is_insecure;
+  std::string cert_client_id;
+  std::string client_cert_path;
 
   if (config.subscribe_config.use_tls) {
-    LOG_INFO(logger, "TLS for thin replica client is enabled, certificate path: " << tls_path);
-    const std::string client_cert_path = tls_path + "/client.cert";
+    LOG_INFO(logger,
+             "TLS for thin replica client is enabled, use_unified_certs: "
+                 << config.transport.use_unified_certs << " Certificates path" << config.transport.tls_cert_root_path);
+    if (config.transport.use_unified_certs) {
+      std::string base_path = config.transport.tls_cert_root_path + "/" + std::to_string(config.client_service.id.val);
+      client_cert_path = base_path + "/node.cert";
 
-    readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      // With unification of certificates, clientservice_host_uuid will be used in place of tr-id specified in
+      // env variables. Config file clientservice_host_uuid will be compared with O field of client certificates
+      // for authentication.
+      config.subscribe_config.id = config.client_service.host_uuid;
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, base_path);
+    } else {
+      config.subscribe_config.id = tr_id;
+      client_cert_path = tls_path + "/client.cert";
 
-    config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+      readCert(client_cert_path, config.subscribe_config.pem_cert_chain);
+      config.subscribe_config.pem_private_key = decryptPrivateKey(config.transport.secret_data, tls_path);
+    }
+    cert_client_id = getClientIdFromClientCert(client_cert_path, config.transport.use_unified_certs);
 
-    std::string cert_client_id = getClientIdFromClientCert(client_cert_path);
     // The client cert must have the client ID in the OU field, because the TRS obtains
     // the client_id from the certificate of the connecting client.
     if (cert_client_id.empty()) {
@@ -206,11 +226,25 @@ void configureTransport(concord::client::concordclient::ConcordClientConfig& con
                         bool is_insecure,
                         const std::string& tls_path) {
   if (not is_insecure) {
-    const std::string server_cert_path = tls_path + "/server.cert";
-    // read server TLS certs for this TRC instance
-    // server_cert_path specifies the path to a composite cert file i.e., a
-    // concatentation of the certificates of all known servers
-    readCert(server_cert_path, config.transport.event_pem_certs);
+    std::string server_cert_path;
+    if (config.transport.use_unified_certs) {
+      LOG_INFO(logger, "TLS Certificates Path: " << config.transport.tls_cert_root_path);
+      // Read all server certificates path for this TRC instance
+      for (size_t i = 0; i < config.topology.replicas.size(); ++i) {
+        server_cert_path = config.transport.tls_cert_root_path + "/" + std::to_string(i) + "/node.cert";
+        std::string out_certs = "";
+        readCert(server_cert_path, out_certs);
+        config.transport.event_pem_certs += out_certs;
+      }
+    } else {
+      LOG_INFO(logger, "TLS Certificates Path: " << tls_path);
+      server_cert_path = tls_path + "/server.cert";
+      // read server TLS certs for this TRC instance
+      // server_cert_path specifies the path to a composite cert file i.e., a
+      // concatentation of the certificates of all known servers
+      readCert(server_cert_path, config.transport.event_pem_certs);
+    }
+    LOG_INFO(logger, "Certificate chain: " << config.transport.event_pem_certs);
   }
 }
 
@@ -256,9 +290,10 @@ void readCert(const std::string& input_filename, std::string& out_data) {
   }
 }
 
-std::string getClientIdFromClientCert(const std::string& client_cert_path) {
+std::string getClientIdFromClientCert(const std::string& client_cert_path, bool use_unified_certs) {
   std::array<char, 128> buffer;
   std::string client_id;
+  std::string delimit;
 
   // check if client cert can be opened
   std::ifstream input_file(client_cert_path.c_str(), std::ios::in);
@@ -274,17 +309,19 @@ std::string getClientIdFromClientCert(const std::string& client_cert_path) {
   if (!pipe) {
     throw std::runtime_error("Failed to read subject fields from client cert - popen() failed!");
   }
+
+  // parse the O field i.e., the client id from the subject field when
+  // unified certificates are used, else parse OU field.
+  delimit = (use_unified_certs) ? "O = " : "OU = ";
   if (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    // parse the OU field i.e., the client id from the subject field
-    client_id = parseClientIdFromSubject(buffer.data());
+    client_id = parseClientIdFromSubject(buffer.data(), delimit);
   }
   return client_id;
 }
 
 // Parses the value of the OU field i.e., the client id from the subject
 // string
-std::string parseClientIdFromSubject(const std::string& subject_str) {
-  std::string delim = "OU = ";
+std::string parseClientIdFromSubject(const std::string& subject_str, const std::string& delim) {
   size_t start = subject_str.find(delim) + delim.length();
   size_t end = subject_str.find(',', start);
   std::string raw_str = subject_str.substr(start, end - start);
