@@ -279,16 +279,17 @@ bool CertificateUtils::verifyCertificate(X509* cert_to_verify,
                                          std::string& conn_type,
                                          bool use_unified_certs) {
   // First get the source ID
-  static constexpr size_t SIZE = 512;
+  static constexpr size_t SIZE = 555;
   std::string subject(SIZE, 0);
   X509_NAME_oneline(X509_get_subject_name(cert_to_verify), subject.data(), SIZE);
 
+  LOG_INFO(GL, "Subject from certificate " << subject.data());
   int peerIdPrefixLength = 3;
   std::regex r("OU=\\d*", std::regex_constants::icase);
   std::smatch sm;
   regex_search(subject, sm, r);
 
-  LOG_DEBUG(GL, "Subject from certificate " << subject);
+  LOG_INFO(GL, "Subject from certificate " << subject);
   if (sm.length() <= peerIdPrefixLength) {
     LOG_ERROR(GL, "OU not found or empty: " << subject);
     return false;

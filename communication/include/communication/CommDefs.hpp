@@ -149,7 +149,7 @@ class TlsTcpConfig : public PlainTcpConfig {
  public:
   std::string certificatesRootPath_;
   std::string cipherSuite_;
-  bool useUnifiedCertificates_;
+  bool useUnifiedCertificates_ = false;
   std::optional<concord::secretsmanager::SecretData> secretData_;
 };
 

@@ -59,6 +59,7 @@ void ClusterKeyStore::saveReplicaKeyStoreToReserevedPages(const uint16_t& repID)
   concord::serialize::Serializable::serialize(oss, clusterKey);
   auto rkStr = oss.str();
   saveReservedPage(repID, rkStr.size(), rkStr.c_str());
+  LOG_INFO(KEY_EX_LOG, "Replica keys updated, RepID " << repID);
 }
 
 // Save clients keys to res pages and sets `published` to true.

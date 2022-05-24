@@ -298,7 +298,7 @@ std::tuple<BaseCommConfig*, SharedCommPtr> ConcordClient::CreateCommConfigAndCom
     }
   }
   client_id_ = client_conf.principal_id;
-  LOG_DEBUG(logger_, "Creating communication module" << KVLOG(client_id_));
+  LOG_INFO(logger_, "Creating communication module" << KVLOG(client_id_));
   if (!enable_mock_comm_) {
     if (multiplexConfig_) {
       if (!multiplex_comm_channel_) {
@@ -345,7 +345,7 @@ void ConcordClient::CreateClient(std::shared_ptr<concordMetrics::Aggregator> agg
   ClientConfig client_config;
   auto [comm_config, comm_layer] = CreateCommConfigAndCommChannel();
   CreateClientConfig(comm_config, client_config);
-  LOG_DEBUG(logger_, "Creating new bft-client instance" << KVLOG(client_id_));
+  LOG_INFO(logger_, "Creating new bft-client instance" << KVLOG(client_id_));
   auto new_client =
       std::unique_ptr<bft::client::Client>{new bft::client::Client(comm_layer, client_config, aggregator)};
   new_client_ = std::move(new_client);

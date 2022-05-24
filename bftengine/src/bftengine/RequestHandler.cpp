@@ -49,12 +49,14 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
       req.outExecutionStatus = static_cast<uint32_t>(OperationResult::SUCCESS);
       continue;
     } else if (req.flags & MsgFlag::RECONFIG_FLAG) {
+      LOG_INFO(KEY_EX_LOG, "Reconfig Flag");
       ReconfigurationRequest rreq;
       deserialize(std::vector<std::uint8_t>(req.request, req.request + req.requestSize), rreq);
       ReconfigurationResponse rsi_res = reconfig_dispatcher_.dispatch(rreq, req.executionSequenceNum, timestamp);
       // in case of read request return only a success part of and replica specific info in the response
       // and the rest as additional data, since it may differ between replicas
       if (req.flags & MsgFlag::READ_ONLY_FLAG) {
+        LOG_INFO(KEY_EX_LOG, "read only flag");
         // Serialize response
         ReconfigurationResponse res;
         res.success = rsi_res.success;
@@ -185,6 +187,7 @@ void RequestHandler::execute(IRequestsHandler::ExecutionRequestsQueue& requests,
     // the size of the queue resembles how many requests have passed consensus.
     resourceEntity_.addMeasurement({ISystemResourceEntity::type::transactions_accumulated, requests.size(), 0, 0});
   }
+  LOG_INFO(KEY_EX_LOG, "Execute done Result");
   return;
 }
 

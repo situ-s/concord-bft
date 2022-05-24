@@ -133,7 +133,11 @@ void ConcordClient::createGrpcConnections() {
         addr, config_.subscribe_config.id, /* TODO */ 3, /* TODO */ 3, config_.state_snapshot_config.timeout_in_sec);
 
     LOG_INFO(logger_,
-             "Create Grpc Connection" << KVLOG(config_.subscribe_config.use_tls, addr, config_.subscribe_config.id));
+             "Create Grpc Connection" << KVLOG(config_.subscribe_config.use_tls,
+                                               addr,
+                                               config_.subscribe_config.id,
+                                               config_.subscribe_config.pem_cert_chain,
+                                               config_.transport.event_pem_certs));
     // TODO: Adapt TRC API to support PEM buffers
     auto trsc_config = std::make_unique<GrpcConnectionConfig>(config_.subscribe_config.use_tls,
                                                               config_.subscribe_config.pem_private_key,
@@ -155,6 +159,12 @@ void ConcordClient::checkAndReConnectGrpcConnections() {
   }
   if (need_reconnection) {
     for (size_t con_offset = 0; con_offset < config_.topology.replicas.size(); ++con_offset) {
+      LOG_INFO(logger_,
+               "Create reconnect Grpc Connection" << KVLOG(config_.subscribe_config.use_tls,
+                                                           con_offset,
+                                                           config_.subscribe_config.id,
+                                                           config_.subscribe_config.pem_cert_chain,
+                                                           config_.transport.event_pem_certs));
       auto trsc_config = std::make_unique<GrpcConnectionConfig>(config_.subscribe_config.use_tls,
                                                                 config_.subscribe_config.pem_private_key,
                                                                 config_.subscribe_config.pem_cert_chain,

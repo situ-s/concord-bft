@@ -34,6 +34,6 @@ uint64_t InternalBFTClient::sendRequest(uint64_t flags,
   auto sn = now_ms.count();
   auto crm = new ClientRequestMsg(getClientId(), flags, sn, requestLength, request, 60000, cid);
   msgComm_->getIncomingMsgsStorage()->pushExternalMsg(std::unique_ptr<MessageBase>(crm), std::move(onPoppedFromQueue));
-  LOG_DEBUG(GL, "Sent internal consensus: seq num [" << sn << "] client id [" << getClientId() << "]");
+  LOG_INFO(GL, "Sent internal consensus: seq num [" << sn << "] client id [" << getClientId() << "]");
   return sn;
 }

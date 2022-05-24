@@ -369,7 +369,8 @@ void ConcordClientPool::CreatePool(concord::config_pool::ConcordClientPoolConfig
                                     config.client_batching_max_messages_nbr,
                                     config.encrypted_config_enabled,
                                     config.transaction_signing_enabled,
-                                    config.with_cre));
+                                    config.with_cre,
+                                    config.use_unified_certificates));
   auto timeout = std::chrono::milliseconds{0UL};
   if (config.client_batching_enabled) {
     batch_size_ = config.client_batching_max_messages_nbr;
@@ -392,7 +393,8 @@ void ConcordClientPool::CreatePool(concord::config_pool::ConcordClientPoolConfig
     auto const secretData = config.encrypted_config_enabled
                                 ? std::optional<concord::secretsmanager::SecretData>(config.secret_data)
                                 : std::nullopt;
-    LOG_INFO(logger_, "Create TLS Multiplex configuration");
+    LOG_INFO(logger_,
+             "Create TLS Multiplex configuration with use_unified_certificates: " << config.use_unified_certificates);
     tlsMultiplexConfig = new TlsMultiplexConfig("tls_multiplex_channel",
                                                 0,
                                                 std::stoul(config.concord_bft_communication_buffer_length),

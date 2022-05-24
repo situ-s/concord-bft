@@ -125,7 +125,7 @@ class ClientKeyStore : public ResPagesClient<ClientKeyStore, 1> {
       published_ = false;
       return;
     }
-    LOG_DEBUG(KEY_EX_LOG, "Clients keys were published");
+    LOG_INFO(KEY_EX_LOG, "Clients keys were published");
     published_ = true;
   }
 };

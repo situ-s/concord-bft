@@ -36,7 +36,7 @@ void AsyncTlsConnection::startReading() {
 }
 
 void AsyncTlsConnection::readMsgSizeHeader(std::optional<size_t> bytes_already_read) {
-  LOG_DEBUG(logger_, KVLOG(peer_id_.value()));
+  LOG_INFO(logger_, KVLOG(peer_id_.value()));
   auto self = shared_from_this();
   const size_t offset = bytes_already_read ? bytes_already_read.value() : 0;
   const size_t bytes_remaining = MSG_HEADER_SIZE - offset;
@@ -275,6 +275,7 @@ void AsyncTlsConnection::write(std::shared_ptr<OutgoingMsg> msg) {
 }
 
 void AsyncTlsConnection::createSSLSocket(asio::ip::tcp::socket&& socket) {
+  LOG_INFO(logger_, "Create socket");
   socket_ = std::make_unique<SSL_SOCKET>(io_context_, ssl_context_);
   socket_->lowest_layer() = std::move(socket);
 }
@@ -285,6 +286,7 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
 
   fs::path path;
   fs::path cert_path;
+  LOG_INFO(logger_, "Use unified certs:" << config_.useUnifiedCertificates_);
   try {
     path = fs::path(config_.certificatesRootPath_) / fs::path(std::to_string(config_.selfId_));
     if (!config_.useUnifiedCertificates_) path = path / fs::path("client");
@@ -328,6 +330,7 @@ void AsyncTlsConnection::initClientSSLContext(NodeNum destination) {
 }
 
 void AsyncTlsConnection::initServerSSLContext() {
+  LOG_INFO(logger_, "Initiate Server context");
   auto self = std::weak_ptr(shared_from_this());
   ssl_context_.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert);
   ssl_context_.set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 |
@@ -364,6 +367,7 @@ void AsyncTlsConnection::initServerSSLContext() {
     ssl_context_.use_certificate_chain_file(cert_path);
     const std::string pk = decryptPrivateKey(path);
     ssl_context_.use_private_key(asio::const_buffer(pk.c_str(), pk.size()), asio::ssl::context::pem);
+    LOG_INFO(logger_, "Server Certificates pk key: " << pk.c_str());
   } catch (const boost::system::system_error& e) {
     LOG_FATAL(logger_, "Failed to load certificate or private key files from path: " << path << " : " << e.what());
     ConcordAssert(false);
@@ -393,6 +397,7 @@ void AsyncTlsConnection::initServerSSLContext() {
     if (!SSL_CTX_set_ciphersuites(ssl_context_.native_handle(), "TLS_AES_256_GCM_SHA384"))
       LOG_FATAL(logger_, "Failed to set default TLS cipher suite");
   }
+  LOG_INFO(logger_, "Server initiated ssl");
 }
 
 bool AsyncTlsConnection::verifyCertificateClient(asio::ssl::verify_context& ctx, NodeNum expected_dest_id) {
@@ -412,6 +417,9 @@ bool AsyncTlsConnection::verifyCertificateClient(asio::ssl::verify_context& ctx,
 
 bool AsyncTlsConnection::verifyCertificateServer(asio::ssl::verify_context& ctx) {
   if (X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT != X509_STORE_CTX_get_error(ctx.native_handle())) {
+    LOG_ERROR(logger_,
+              "The passed Certificate is Self-Signed and the same certificate cannot be found in the list of trusted "
+              "certificates");
     return false;
   }
   X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
@@ -420,6 +428,7 @@ bool AsyncTlsConnection::verifyCertificateServer(asio::ssl::verify_context& ctx)
     return false;
   }
   auto [valid, peer_id] = checkCertificate(cert, std::nullopt);
+  LOG_INFO(logger_, "Verify certificate server peer" << peer_id);
   peer_id_ = peer_id;
   return valid;
 }
@@ -431,7 +440,9 @@ std::pair<bool, NodeNum> AsyncTlsConnection::checkCertificate(X509* received_cer
   // (1) First, try to verify the certificate against the latest saved certificate
   bool res = concord::util::crypto::CertificateUtils::verifyCertificate(
       received_cert, config_.certificatesRootPath_, peerId, conn_type, config_.useUnifiedCertificates_);
+  LOG_INFO(logger_, "Check certs peer: " << peerId << "res:" << res);
   if (expected_peer_id.has_value() && peerId != expected_peer_id.value()) return std::make_pair(false, peerId);
+  LOG_INFO(logger_, "Check certs Peer: " << peerId << "res:" << res);
   if (res) return std::make_pair(res, peerId);
   LOG_INFO(logger_,
            "Unable to validate certificate against the local storage, falling back to validate against the RSA "
@@ -457,6 +468,8 @@ std::pair<bool, NodeNum> AsyncTlsConnection::checkCertificate(X509* received_cer
       (config_.useUnifiedCertificates_)
           ? config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + "node.cert"
           : config_.certificatesRootPath_ + "/" + std::to_string(peerId) + "/" + conn_type + "/" + conn_type + ".cert";
+
+  LOG_INFO(logger_, "Local cert path" << local_cert_path);
   std::string certStr;
   int certLen = BIO_pending(outbio);
   certStr.resize(certLen);
@@ -477,9 +490,11 @@ const std::string AsyncTlsConnection::decryptPrivateKey(const fs::path& path) {
   std::unique_ptr<ISecretsManagerImpl> secrets_manager;
   if (config_.secretData_) {
     pkpath = (path / fs::path("pk.pem.enc")).string();
+    LOG_INFO(logger_, "PK encpath" << pkpath);
     secrets_manager.reset(new SecretsManagerEnc(config_.secretData_.value()));
   } else {
     pkpath = (path / fs::path("pk.pem")).string();
+    LOG_INFO(logger_, "PK path" << pkpath);
     secrets_manager.reset(new SecretsManagerPlain());
   }
 

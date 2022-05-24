@@ -13,6 +13,10 @@
 #include <cstdint>
 #include <future>
 #include <string>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <sys/types.h>
 
 #include "assertUtils.hpp"
 #include "TlsConnectionManager.h"
@@ -207,6 +211,7 @@ void ConnectionManager::onConnectionAuthenticated(std::shared_ptr<AsyncTlsConnec
 
 void ConnectionManager::onServerHandshakeComplete(const asio::error_code& ec, size_t accepted_connection_id) {
   auto conn = std::move(accepted_waiting_for_handshake_.at(accepted_connection_id));
+  LOG_INFO(logger_, "moved to connection");
   accepted_waiting_for_handshake_.erase(accepted_connection_id);
   status_->num_accepted_waiting_for_handshake = accepted_waiting_for_handshake_.size();
   if (ec) {
@@ -237,10 +242,14 @@ void ConnectionManager::onClientHandshakeComplete(const asio::error_code& ec, No
 
 void ConnectionManager::startServerSSLHandshake(asio::ip::tcp::socket&& socket) {
   auto connection_id = total_accepted_connections_;
+  LOG_INFO(logger_, "Connection ID: " << connection_id);
   auto conn =
       AsyncTlsConnection::create(io_context_, std::move(socket), receiver_, *this, config_, *status_, histograms_);
+  LOG_INFO(logger_, "connection created");
   accepted_waiting_for_handshake_.insert({connection_id, conn});
+  LOG_INFO(logger_, "Inserted for handshake");
   status_->num_accepted_waiting_for_handshake = accepted_waiting_for_handshake_.size();
+  LOG_INFO(logger_, "Starting handshake");
   conn->getSocket().async_handshake(asio::ssl::stream_base::server,
                                     asio::bind_executor(strand_, [this, connection_id](const asio::error_code& ec) {
                                       onServerHandshakeComplete(ec, connection_id);
@@ -290,6 +299,7 @@ void ConnectionManager::resolve(NodeNum i) {
   resolving_.insert(i);
   status_->num_resolving = resolving_.size();
   auto node = config_.nodes_.at(i);
+
   resolver_.async_resolve(
       asio::ip::tcp::v4(),
       node.host,

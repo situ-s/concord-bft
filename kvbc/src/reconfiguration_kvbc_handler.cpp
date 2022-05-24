@@ -110,6 +110,7 @@ concord::messages::ClientStateReply KvbcClientReconfigurationHandler::buildClien
     kvbc::keyTypes::CLIENT_COMMAND_TYPES command_type, uint32_t clientid) {
   concord::messages::ClientStateReply creply;
   creply.block_id = 0;
+  LOG_INFO(GL, "Block id " << KVLOG(creply.block_id, clientid));
   auto res = ro_storage_.getLatest(
       concord::kvbc::categorization::kConcordReconfigurationCategoryId,
       std::string{kvbc::keyTypes::reconfiguration_client_data_prefix, static_cast<char>(command_type)} +
@@ -124,36 +125,42 @@ concord::messages::ClientStateReply KvbcClientReconfigurationHandler::buildClien
               concord::messages::ClientExchangePublicKey cmd;
               concord::messages::deserialize(data_buf, cmd);
               creply.response = cmd;
+              LOG_INFO(GL, "1. Command ID: " << KVLOG(cmd.id, cmd.sender_id));
               break;
             }
             case kvbc::keyTypes::CLIENT_COMMAND_TYPES::CLIENT_KEY_EXCHANGE_COMMAND: {
               concord::messages::ClientKeyExchangeCommand cmd;
               concord::messages::deserialize(data_buf, cmd);
               creply.response = cmd;
+              LOG_INFO(GL, "2. Command ID: " << KVLOG(cmd.id, cmd.tls));
               break;
             }
             case kvbc::keyTypes::CLIENT_COMMAND_TYPES::CLIENT_SCALING_EXECUTE_COMMAND: {
               concord::messages::ClientsAddRemoveExecuteCommand cmd;
               concord::messages::deserialize(data_buf, cmd);
               creply.response = cmd;
+              LOG_INFO(GL, "3. Command ID: " << KVLOG(cmd.id));
               break;
             }
             case kvbc::keyTypes::CLIENT_COMMAND_TYPES::CLIENT_SCALING_COMMAND_STATUS: {
               concord::messages::ClientsAddRemoveUpdateCommand cmd;
               concord::messages::deserialize(data_buf, cmd);
               creply.response = cmd;
+              LOG_INFO(GL, "4. Command ID: " << KVLOG(cmd.id));
               break;
             }
             case kvbc::keyTypes::CLIENT_COMMAND_TYPES::CLIENT_RESTART_COMMAND: {
               concord::messages::ClientsRestartCommand cmd;
               concord::messages::deserialize(data_buf, cmd);
               creply.response = cmd;
+              LOG_INFO(GL, "5. Command ID: " << KVLOG(cmd.id));
               break;
             }
             default:
               break;
           }
           creply.block_id = arg.block_id;
+          LOG_INFO(GL, "Block id " << KVLOG(creply.block_id));
           auto epoch_data = ro_storage_.get(
               concord::kvbc::categorization::kConcordReconfigurationCategoryId,
               std::string{kvbc::keyTypes::reconfiguration_epoch_key} +
@@ -457,6 +464,7 @@ bool KvbcClientReconfigurationHandler::handle(const concord::messages::ClientRec
   uint16_t first_client_id =
       bftEngine::ReplicaConfig::instance().numReplicas + bftEngine::ReplicaConfig::instance().numRoReplicas;
   if (sender_id > first_client_id) {
+    LOG_INFO(getLogger(), "sender_id: " << sender_id);
     for (uint8_t i = kvbc::keyTypes::CLIENT_COMMAND_TYPES::start_ + 1; i < kvbc::keyTypes::CLIENT_COMMAND_TYPES::end_;
          i++) {
       auto csrep = buildClientStateReply(static_cast<keyTypes::CLIENT_COMMAND_TYPES>(i), sender_id);
@@ -487,6 +495,8 @@ bool KvbcClientReconfigurationHandler::handle(const concord::messages::ClientRec
       if (scale_status_csrep.block_id > 0) rep.states.push_back(scale_csrep);
     }
   }
+  LOG_INFO(getLogger(), "client id: " << first_client_id);
+  LOG_INFO(getLogger(), "Serialize addtional data: ");
   concord::messages::serialize(rres.additional_data, rep);
   return true;
 }
@@ -572,6 +582,7 @@ bool ReconfigurationHandler::handle(const concord::messages::ClientKeyExchangeSt
         std::string client_cert_path = (bftEngine::ReplicaConfig::instance().useUnifiedCertificates)
                                            ? base_path + "/node.cert"
                                            : base_path + "/client/client.cert";
+        LOG_INFO(getLogger(), "Client cert path" << client_cert_path);
         auto cert = psm.decryptFile(client_cert_path).value_or("invalid client id");
         stats.clients_data.push_back(std::make_pair(cid, cert));
         continue;

@@ -156,6 +156,7 @@ void KeyExchangeManager::exchangeTlsKeys(const std::string& type, const SeqNum& 
   std::string root_path = (use_unified_certs) ? base_path : base_path + "/" + type;
 
   std::string cert_path = (use_unified_certs) ? root_path + "/node.cert" : root_path + "/" + type + ".cert";
+  LOG_INFO(KEY_EX_LOG, "Key Exchange Certificates Path" << cert_path);
   std::string prev_key_pem = concord::util::crypto::Crypto::instance()
                                  .RsaHexToPem(std::make_pair(SigManager::instance()->getSelfPrivKey(), ""))
                                  .first;

@@ -239,6 +239,7 @@ void configureTransport(concord::client::concordclient::ConcordClientConfig& con
         readCert(server_cert_path, out_certs);
         config.transport.event_pem_certs += out_certs;
       }
+      LOG_INFO(logger, "Server certs: " << config.transport.event_pem_certs);
     } else {
       LOG_INFO(logger, "TLS Certificates Path: " << tls_path);
       server_cert_path = tls_path + "/server.cert";

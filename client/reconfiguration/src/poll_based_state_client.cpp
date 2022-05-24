@@ -29,12 +29,15 @@ concord::messages::ReconfigurationResponse PollBasedStateClient::sendReconfigura
   concord::messages::ReconfigurationResponse rres;
   try {
     if (read_request) {
+      LOG_INFO(getLogger(), "Sending read request" << KVLOG(cid, sn));
       bft::client::ReadConfig read_config{request_config, bft::client::LinearizableQuorum{}};
       rep = bftclient_->send(read_config, std::move(msg));
     } else {
+      LOG_INFO(getLogger(), "Sending write request" << KVLOG(cid, sn));
       bft::client::WriteConfig write_config{request_config, bft::client::LinearizableQuorum{}};
       rep = bftclient_->send(write_config, std::move(msg));
     }
+    LOG_INFO(getLogger(), "deserialize msg");
     concord::messages::deserialize(rep.matched_data, rres);
   } catch (std::exception& e) {
     LOG_WARN(getLogger(), "error while initiating bft request " << e.what());
@@ -70,7 +73,9 @@ std::vector<State> PollBasedStateClient::getStateUpdate(bool& succ) const {
   rreq.sender = id_;
   rreq.command = creq;
   auto sn = sn_gen_.unique();
+  LOG_INFO(getLogger(), "PBS: send reconf request getStateUpdate SenderID:" << rreq.sender);
   auto rres = sendReconfigurationRequest(rreq, "getStateUpdate-" + std::to_string(sn), sn, true);
+  LOG_INFO(getLogger(), "Result: " << rres.success);
   if (!rres.success) {
     LOG_WARN(getLogger(), "invalid response from replicas");
     succ = false;
@@ -78,6 +83,7 @@ std::vector<State> PollBasedStateClient::getStateUpdate(bool& succ) const {
   }
   concord::messages::ClientReconfigurationStateReply crep;
   try {
+    LOG_INFO(getLogger(), "Deserializing additional_data ");
     concord::messages::deserialize(rres.additional_data, crep);
   } catch (const std::exception& e) {
     LOG_ERROR(getLogger(), e.what());
@@ -156,7 +162,9 @@ bool PollBasedStateClient::updateState(const WriteState& state) {
   concord::messages::deserialize(state.data, rreq);
   rreq.sender = id_;
   auto sn = sn_gen_.unique();
+  LOG_INFO(getLogger(), "PBS: send reconf request updateState senderId: " << rreq.sender);
   auto rres = sendReconfigurationRequest(rreq, "updateState-" + std::to_string(sn), sn, false);
+  LOG_INFO(getLogger(), "senderId: " << rreq.sender << "Succ: " << rres.success);
   if (rres.success && state.callBack != nullptr) state.callBack();
   return rres.success;
 }

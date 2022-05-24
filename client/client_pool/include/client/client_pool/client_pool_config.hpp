@@ -114,6 +114,7 @@ class ClientPoolConfig {
   const std::string TRANSACTION_SIGNING_KEY_PATH = "signing_key_path";
   const std::string CLIENT_BATCHING_ENABLED = "client_batching_enabled";
   const std::string MULTIPLEX_CHANNEL_ENABLED = "enable_multiplex_channel";
+  const std::string USE_UNIFIED_CERTIFICATES = "use_unified_certificates";
   const std::string CLIENT_BATCHING_MAX_MSG_NUM = "client_batching_max_messages_nbr";
   const std::string CLIENT_BATCHING_TIMEOUT_MILLI = "client_batching_flush_timeout_ms";
   const std::string TRACE_SAMPLING_RATE = "trace_sampling_rate";

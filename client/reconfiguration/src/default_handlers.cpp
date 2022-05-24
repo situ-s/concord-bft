@@ -99,10 +99,16 @@ ClientTlsKeyExchangeHandler::ClientTlsKeyExchangeHandler(
     const std::vector<uint32_t>& bft_clients,
     std::shared_ptr<concord::secretsmanager::ISecretsManagerImpl> sm)
     : master_key_path_{master_key_path}, cert_folder_{cert_folder}, enc_{enc}, sm_{sm}, bft_clients_{bft_clients} {
+  LOG_INFO(getLogger(), "Check version folder");
   version_path_ = cert_folder + "/version";
-  if (!fs::exists(version_path_)) fs::create_directories(version_path_);
+  if (!fs::exists(version_path_)) {
+    LOG_INFO(getLogger(), "version folder does not exists, Create it");
+    fs::create_directories(version_path_);
+  }
   version_path_ += "/exchange.version";
+  LOG_INFO(getLogger(), "Version path: " << version_path_);
   init_last_tls_update_block_ = std::stol(psm_.decryptFile(version_path_).value_or("0"));
+  LOG_INFO(getLogger(), "update block id" << init_last_tls_update_block_);
 }
 ClientMasterKeyExchangeHandler::ClientMasterKeyExchangeHandler(
     uint32_t client_id,

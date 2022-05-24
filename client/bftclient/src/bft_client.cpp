@@ -251,6 +251,7 @@ Reply Client::send(const MatchConfig& match_config,
 }
 
 SeqNumToReplyMap Client::sendBatch(std::deque<WriteRequest>& write_requests, const std::string& cid) {
+  LOG_INFO(logger_, "Start Send batch");
   SeqNumToReplyMap replies;
   std::chrono::milliseconds max_time_to_wait = 0s;
   MatchConfig match_config = writeConfigToMatchConfig(write_requests.front().config);
@@ -327,6 +328,8 @@ void Client::wait(SeqNumToReplyMap& replies) {
 MatchConfig Client::writeConfigToMatchConfig(const WriteConfig& write_config) {
   MatchConfig mc;
   mc.sequence_number = write_config.request.sequence_number;
+
+  LOG_INFO(logger_, "writeConfigToMatchConfig" << mc.sequence_number);
 
   if (std::holds_alternative<LinearizableQuorum>(write_config.quorum)) {
     mc.quorum = quorum_converter_.toMofN(std::get<LinearizableQuorum>(write_config.quorum));
