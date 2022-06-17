@@ -251,6 +251,7 @@ class ThinReplicaImpl {
     }
 
     auto [kvb_status, kvb_filter] = createKvbFilter(context, request);
+    LOG_INFO(logger_, "SubscribeToUpdates createKvbFilter created");
     if (!kvb_status.ok()) {
       LOG_WARN(logger_,
                "SubscribeToUpdates createKvbFilter failed (" << kvb_status.error_code()
@@ -303,9 +304,12 @@ class ThinReplicaImpl {
     kvbc::BlockId start_block_id;
     if (request->has_events()) {
       start_block_id = request->events().block_id();
+      LOG_INFO(logger_, "start_block_id" << start_block_id);
       if (auto opt = kvb_filter->getOldestEventGroupBlockId()) {
+        LOG_INFO(logger_, "oldest event group block id" << opt.value());
         if (start_block_id >= opt.value()) {
           is_event_group_transition = true;
+          LOG_INFO(logger_, "is_event_group_transition" << is_event_group_transition);
         }
       }
     }
@@ -680,7 +684,7 @@ class ThinReplicaImpl {
     char* subj = X509_NAME_oneline(X509_get_subject_name(certificate), NULL, 0);
     std::string result(subj);
 
-    LOG_DEBUG(logger_, "TRS Subject: " << result);
+    LOG_INFO(logger_, "TRS Subject: " << result);
     // parse the O field i.e., the client_id from the certificate when use_unified_certs is enabled
     // else parse OU field
     std::string delim = (config_->use_unified_certs) ? "O=" : "OU=";
@@ -690,6 +694,7 @@ class ThinReplicaImpl {
     BIO_free(bio);
     X509_free(certificate);
     OPENSSL_free(subj);
+    LOG_INFO(logger_, "client_id from cert: " << client_id);
     return client_id;
   }
 
@@ -1202,6 +1207,7 @@ class ThinReplicaImpl {
       std::string client_id = getClientIdFromClientCert(context);
       if (!client_id.empty()) {
         if (config_->client_id_set.find(client_id) != config_->client_id_set.end()) {
+          LOG_INFO(logger_, "Client id:" << client_id);
           return client_id;
         } else {
           LOG_FATAL(logger_,
@@ -1239,6 +1245,7 @@ class ThinReplicaImpl {
       LOG_ERROR(logger_, msg.str());
       return {grpc::Status(grpc::StatusCode::INTERNAL, msg.str()), live_updates};
     }
+    LOG_INFO(logger_, "subscribeToLiveUpdates is success");
     return {grpc::Status::OK, live_updates};
   }
 
