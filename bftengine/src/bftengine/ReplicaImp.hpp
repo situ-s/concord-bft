@@ -78,6 +78,7 @@ using concordMetrics::StatusHandle;
 
 class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
  protected:
+  std::atomic_bool isCollectingState_;
   const bool viewChangeProtocolEnabled;
   const bool autoPrimaryRotationEnabled;
 
@@ -368,7 +369,9 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
   std::function<bool(MessageBase*)> getMessageValidator();
 
   // InternalReplicaApi
-  bool isCollectingState() const override { return stateTransfer->isCollectingState(); }
+  bool isCollectingState() const override { return isCollectingState_; }
+  void startCollectingState();
+  void setIsCollectingState(bool newState);
   bool isValidClient(NodeIdType clientId) const override { return clientsManager->isValidClient(clientId); }
   bool isIdOfReplica(NodeIdType id) const override { return repsInfo->isIdOfReplica(id); }
   const std::set<ReplicaId>& getIdsOfPeerReplicas() const override { return repsInfo->idsOfPeerReplicas(); }
