@@ -230,6 +230,8 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
   // it will be initialized to a SecretsManagerPlain
   shared_ptr<concord::secretsmanager::ISecretsManagerImpl> sm_;
 
+  std::atomic_bool isCollectingState_;
+
   std::shared_ptr<concord::cron::TicksGenerator> ticks_gen_;
 
   std::unordered_map<uint8_t, std::map<ReplicaId, std::unique_ptr<ReplicaRestartReadyMsg>>> restart_ready_msgs_;
@@ -368,7 +370,9 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
   std::function<bool(MessageBase*)> getMessageValidator();
 
   // InternalReplicaApi
-  bool isCollectingState() const override { return stateTransfer->isCollectingState(); }
+  bool isCollectingState() const override { return isCollectingState_; }
+  void startCollectingState();
+  void setIsCollectingState(bool newState);
   bool isValidClient(NodeIdType clientId) const override { return clientsManager->isValidClient(clientId); }
   bool isIdOfReplica(NodeIdType id) const override { return repsInfo->isIdOfReplica(id); }
   const std::set<ReplicaId>& getIdsOfPeerReplicas() const override { return repsInfo->idsOfPeerReplicas(); }

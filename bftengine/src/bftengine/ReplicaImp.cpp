@@ -2423,7 +2423,7 @@ void ReplicaImp::onMessage<CheckpointMsg>(CheckpointMsg *msg) {
       LOG_INFO(GL, "Call to startCollectingState()");
       time_in_state_transfer_.start();
       clientsManager->clearAllPendingRequests();  // to avoid entering a new view on old request timeout
-      stateTransfer->startCollectingState();
+      startCollectingState();
     }
   } else if (msgSenderId == msgGenReplicaId) {
     if (msgSeqNum > lastStableSeqNum + kWorkWindowSize) {
@@ -3333,6 +3333,11 @@ void ReplicaImp::tryToMarkCheckpointStableForFastPath(const SeqNum &lastCheckpoi
   sendToAllOtherReplicas(checkpointMessage, true);
 }
 
+void ReplicaImp::setIsCollectingState(bool newState) {
+  LOG_INFO(GL, std::boolalpha << "Setting CollectingState to" << KVLOG(newState));
+  isCollectingState_ = newState;
+}
+
 void ReplicaImp::onTransferringCompleteImp(uint64_t newStateCheckpoint) {
   ConcordAssertEQ(activeExecutions_, 0);
   SCOPED_MDC_SEQ_NUM(std::to_string(getCurrentView()));
@@ -3354,6 +3359,7 @@ void ReplicaImp::onTransferringCompleteImp(uint64_t newStateCheckpoint) {
     if (ps_) {
       ps_->endWriteTran(config_.getsyncOnUpdateOfMetadata());
     }
+    setIsCollectingState(false);
     return;
   }
   lastExecutedSeqNum = newCheckpointSeqNum;
@@ -3414,6 +3420,8 @@ void ReplicaImp::onTransferringCompleteImp(uint64_t newStateCheckpoint) {
   metric_last_executed_seq_num_.Get().Set(lastExecutedSeqNum);
 
   sendToAllOtherReplicas(checkpointMsg);
+
+  setIsCollectingState(false);
 
   if (!currentViewIsActive()) {
     LOG_INFO(GL, "tryToEnterView after State Transfer finished ...");
@@ -4296,6 +4304,7 @@ ReplicaImp::ReplicaImp(bool firstTime,
 
       pm_{pm},
       sm_{sm ? sm : std::make_shared<concord::secretsmanager::SecretsManagerPlain>()},
+      /// isCollectingState_{stateTrans->isCollectingState()},
       metric_view_{metrics_.RegisterGauge("view", 0)},
       metric_last_stable_seq_num_{metrics_.RegisterGauge("lastStableSeqNum", lastStableSeqNum)},
       metric_last_executed_seq_num_{metrics_.RegisterGauge("lastExecutedSeqNum", lastExecutedSeqNum)},
@@ -4402,6 +4411,7 @@ ReplicaImp::ReplicaImp(bool firstTime,
       KeyExchangeManager::instance().sendInitialKey(this);
     }
   });
+  setIsCollectingState(stateTransfer->isCollectingState());
   stateTransfer->addOnFetchingStateChangeCallback([&](uint64_t) {
     // With (n-f) initial key exchange support, if we have a lagged replica
     // which syncs its state through ST, we need to make sure that it completes
@@ -5267,13 +5277,18 @@ void ReplicaImp::updateLimitsAndMetrics(PrePrepareMsg *ppMsg) {
   }
 }
 
+void ReplicaImp::startCollectingState() {
+  setIsCollectingState(true);
+  stateTransfer->startCollectingState();
+}
+
 void ReplicaImp::handleDeferredRequests() {
   if (isStartCollectingState_) {
     if (!stateTransfer->isCollectingState()) {
       LOG_INFO(GL, "Call to startCollectingState()");
       time_in_state_transfer_.start();
       clientsManager->clearAllPendingRequests();  // to avoid entering a new view on old request timeout
-      stateTransfer->startCollectingState();
+      startCollectingState();
     } else {
       LOG_ERROR(GL, "Collecting state should be active while we are in onExecutionFinish");
     }
