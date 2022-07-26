@@ -52,6 +52,7 @@ class ITestCommConfig {
                                                            uint16_t& num_of_clients,
                                                            uint16_t& num_of_replicas,
                                                            const std::string& config_file_name,
+                                                           bool unified_cert,
                                                            const std::string& cert_root_path) = 0;
 
  protected:

@@ -67,7 +67,7 @@ def start_replica_cmd_with_object_store_and_ke(builddir, replica_id, config):
     ret.extend(["-f", time_service_enabled, "-b", "2", "-q", batch_size, "-e", str(True), "-o", builddir + "/operator_pub.pem", "--publish-master-key-on-startup"])
     return ret
 
-def start_replica_cmd(builddir, replica_id):
+def start_replica_cmd(builddir, replica_id, unified_certificates="0"):
     """
     Return a command that starts an skvbc replica when passed to
     subprocess.Popen.
@@ -90,6 +90,7 @@ def start_replica_cmd(builddir, replica_id):
             "-v", viewChangeTimeoutMilli,
             "-l", os.path.join(builddir, "tests", "simpleKVBC", "scripts", "logging.properties"),
             "-f", time_service_enabled,
+            "-U", unified_certificates,
             "-b", "2",
             "-q", batch_size,
             "-o", builddir + "/operator_pub.pem",
@@ -350,7 +351,11 @@ class SkvbcReconfigurationTest(ApolloTest):
     def collect_client_certificates(self, bft_network, targets):
         certs = {}
         for t in targets:
-            client_cert_path = os.path.join(bft_network.certdir, str(t), str(bft_network.cre_id),"client", "client.cert")
+            client_cert_path = os.path.join(bft_network.certdir, str(t), str(bft_network.cre_id))
+            if bft_network.unified_cert:
+                client_cert_path = os.path.join(client_cert_path, "node.cert")
+            else:
+                client_cert_path = os.path.join(client_cert_path, "client", "client.cert")
             with open(client_cert_path) as orig_cert:
                 orig_cert_text = orig_cert.read()
                 certs[t] = orig_cert_text
@@ -365,7 +370,11 @@ class SkvbcReconfigurationTest(ApolloTest):
             certs_in_effected = certs
         await self.run_client_ke_command(bft_network, True)
         with trio.fail_after(60):
-            client_cert_path = os.path.join(bft_network.certdir, str(bft_network.cre_id), str(bft_network.cre_id),"client", "client.cert")
+            client_cert_path = os.path.join(bft_network.certdir, str(bft_network.cre_id), str(bft_network.cre_id))
+            if bft_network.unified_cert:
+                client_cert_path = os.path.join(client_cert_path, "node.cert")
+            else:
+                client_cert_path = os.path.join(client_cert_path, "client", "client.cert")
             succ = False
             while not succ:
                 succ = True
@@ -552,11 +561,19 @@ class SkvbcReconfigurationTest(ApolloTest):
             reps_data[rep] = {}
             for r in replicas:
                 val = []
-                cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r), "server", "server.cert")
+                cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r))
+                if bft_network.unified_cert:
+                    cert_path = os.path.join(cert_path, "node.cert")
+                else:
+                    cert_path = os.path.join(cert_path, "server", "server.cert")
                 with open(cert_path) as orig_key:
                     cert_text = orig_key.readlines()
                     val += [cert_text]
-                cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r), "client", "client.cert")
+                cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r))
+                if bft_network.unified_cert:
+                    cert_path = os.path.join(cert_path, "node.cert")
+                else:
+                    cert_path = os.path.join(cert_path, "client", "client.cert")
                 with open(cert_path) as orig_key:
                     cert_text = orig_key.readlines()
                     val += [cert_text]
@@ -577,6 +594,10 @@ class SkvbcReconfigurationTest(ApolloTest):
                 for rep in affected_replicas:
                     for r in replicas:
                         cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r), "server", "server.cert")
+                        if bft_network.unified_cert:
+                            cert_path = os.path.join(cert_path, "node.cert")
+                        else:
+                            cert_path = os.path.join(cert_path, "server", "server.cert")
                         with open(cert_path) as orig_key:
                             cert_text = orig_key.readlines()
                             diff = difflib.unified_diff(reps_data[rep][r][0], cert_text, fromfile="new", tofile="old", lineterm='')
@@ -584,6 +605,10 @@ class SkvbcReconfigurationTest(ApolloTest):
                             if lines > 0:
                                 continue
                         cert_path = os.path.join(bft_network.certdir + "/" + str(rep), str(r), "client", "client.cert")
+                        if bft_network.unified_cert:
+                            cert_path = os.path.join(cert_path, "node.cert")
+                        else:
+                            cert_path = os.path.join(cert_path, "client", "client.cert")
                         with open(cert_path) as orig_key:
                             cert_text = orig_key.readlines()
                             diff = difflib.unified_diff(reps_data[rep][r][1], cert_text, fromfile="new", tofile="old", lineterm='')
