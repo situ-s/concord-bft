@@ -56,7 +56,8 @@ class InternalReplicaApi  // TODO(GG): rename + clean + split to several classes
   virtual IncomingMsgsStorage& getIncomingMsgsStorage() = 0;
   virtual concord::util::SimpleThreadPool& getInternalThreadPool() = 0;
 
-  virtual bool isCollectingState() const = 0;
+  virtual bool isCollectingState(const char* caller_str = __builtin_FUNCTION(),
+                                 int caller_line = __builtin_LINE()) const = 0;
 
   virtual const ReplicaConfig& getReplicaConfig() const = 0;
 

@@ -93,8 +93,7 @@ NUM_PARTICIPANTS = 5
 
 def interesting_configs(config_filter=None) -> Sequence[BFTConfig]:
     config_filter = config_filter or (lambda n, f, c: c == 0)
-    bft_configs = [BFTConfig(n=6, f=1, c=1),
-                   BFTConfig(n=7, f=2, c=0),
+    bft_configs = [BFTConfig(n=7, f=2, c=0),
                    #BFTConfig(n=4, f=1, c=0),
                    #BFTConfig(n=9, f=2, c=1),
                    #BFTConfig(n=12, f=3, c=1),

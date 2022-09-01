@@ -369,8 +369,19 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
   std::function<bool(MessageBase*)> getMessageValidator();
 
   // InternalReplicaApi
-  bool isCollectingState() const override {
-    LOG_INFO(GL, "Thread ID: " << std::this_thread::get_id());
+  mutable std::mutex lock_;
+  bool isCollectingState(const char* caller_str = __builtin_FUNCTION(),
+                         int caller_line = __builtin_LINE()) const override {
+    thread_local static std::string my_thread_name = "";
+    static int counter{};
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (my_thread_name.empty()) {
+      ++counter;
+      my_thread_name = std::string("thread_") + to_string(counter);
+    }
+    auto thread_id = std::this_thread::get_id();
+    LOG_INFO(GL, "xxyy:" << KVLOG(thread_id, my_thread_name, caller_str, caller_line, isCollectingState_));
     return isCollectingState_;
   }
   void startCollectingState(std::string&& reason = "");

@@ -119,7 +119,10 @@ class DummyReplica : public InternalReplicaApi {
 
   IncomingMsgsStorage& getIncomingMsgsStorage() override { return *incomingMsgsStorage_; }
   concord::util::SimpleThreadPool& getInternalThreadPool() override { return pool_; }
-  bool isCollectingState() const override { return false; }
+  bool isCollectingState(const char* caller_str = __builtin_FUNCTION(),
+                         int caller_line = __builtin_LINE()) const override {
+    return false;
+  }
 
   const ReplicaConfig& getReplicaConfig() const override { return replicaConfig; }
   SeqNum getPrimaryLastUsedSeqNum() const override { return 0; }
