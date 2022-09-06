@@ -404,7 +404,7 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
 
   SCOPED_MDC_PRIMARY(std::to_string(currentPrimary()));
   SCOPED_MDC_CID(m->getCid());
-  LOG_DEBUG(CNSUS, KVLOG(clientId, reqSeqNum, senderId) << " flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
+  LOG_INFO(CNSUS, KVLOG(clientId, reqSeqNum, senderId) << " xxyy: flags: " << std::bitset<sizeof(uint64_t) * 8>(flags));
 
   const auto &span_context = m->spanContext<std::remove_pointer<decltype(m)>::type>();
   auto span = concordUtils::startChildSpanFromContext(span_context, "bft_client_request");
@@ -4654,6 +4654,7 @@ void ReplicaImp::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_span, 
   ConcordAssert(request->isReadOnly());
   ConcordAssert(!isCollectingState());
 
+  LOG_INFO(GL, "xxyy: Execute ROR ");
   auto span = concordUtils::startChildSpan("bft_execute_read_only_request", parent_span);
   ClientReplyMsg reply(currentPrimary(), request->requestSeqNum(), config_.getreplicaId());
 
@@ -4680,14 +4681,14 @@ void ReplicaImp::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_span, 
   status = single_request.outExecutionStatus;
   const uint32_t actualReplyLength = single_request.outActualReplySize;
   const uint32_t actualReplicaSpecificInfoLength = single_request.outReplicaSpecificInfoSize;
-  LOG_DEBUG(GL,
-            "Executed read only request. " << KVLOG(clientId,
-                                                    lastExecutedSeqNum,
-                                                    request->requestLength(),
-                                                    reply.maxReplyLength(),
-                                                    actualReplyLength,
-                                                    actualReplicaSpecificInfoLength,
-                                                    status));
+  LOG_INFO(GL,
+           "Executed read only request. " << KVLOG(clientId,
+                                                   lastExecutedSeqNum,
+                                                   request->requestLength(),
+                                                   reply.maxReplyLength(),
+                                                   actualReplyLength,
+                                                   actualReplicaSpecificInfoLength,
+                                                   status));
   // TODO(GG): TBD - how do we want to support empty replies? (actualReplyLength==0)
   if (!status) {
     if (actualReplyLength > 0) {

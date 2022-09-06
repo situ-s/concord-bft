@@ -772,8 +772,8 @@ class BftTestNetwork:
 
             os.makedirs(self.test_dir, exist_ok=True)
 
-            stdout_file = open(replica_test_log_path, 'w+')
-            stderr_file = open(replica_test_log_path, 'w+')
+            stdout_file = open(replica_test_log_path, 'a+')
+            stderr_file = open(replica_test_log_path, 'a+')
 
             stdout_file.write("############################################\n")
             stdout_file.flush()
@@ -1215,6 +1215,23 @@ class BftTestNetwork:
                                            replica,
                                            nursery.cancel_scope)
 
+    async def ss_wait_for_state_transfer_to_start(self, client, known_key):
+        """
+        Retry checking every .5 seconds until state transfer starts at least one
+        node. Stop trying, and fail the test after 30 seconds.
+        """
+        with log.start_action(action_type="ss_wait_for_state_transfer_to_start"):
+            with trio.fail_after(30): # seconds
+                async with trio.open_nursery() as nursery:
+                    skvbc = kvbc.SimpleKVBCProtocol(self)
+                    for replica in self.replicas:
+                        nursery.start_soon(skvbc.send_read_kv_set, client, None, 100)
+                        nursery.start_soon(self.ss_wait_to_receive_st_msgs,
+                                           replica,
+                                           nursery.cancel_scope,
+                                           client,
+                                           known_key)
+
     async def wait_for_replicas_to_collect_stable_checkpoint(self, replicas, checkpoint, timeout=30):
         with log.start_action(action_type="wait_for_replicas_to_collect_stable_checkpoint", replicas=replicas) as action:
             with trio.fail_after(seconds=timeout):
@@ -1237,6 +1254,24 @@ class BftTestNetwork:
         concurrent coroutines in the request scope.
         """
         with log.start_action(action_type="_wait_to_receive_st_msgs", replica=replica.id) as action:
+            while True:
+                with trio.move_on_after(.5): # seconds
+                    try:
+                        key = ['replica', 'Counters', 'receivedStateTransferMsgs']
+                        n = await self.metrics.get(replica.id, *key)
+                        if n > 0:
+                            action.log(message_type="State transfer has started. Cancelling concurrent coroutines", receivedStateTransferMsgs=n)
+                            cancel_scope.cancel()
+                    except KeyError:
+                        pass # metrics not yet available, continue looping
+                    await trio.sleep(0.1)
+
+    async def ss_wait_to_receive_st_msgs(self, replica, cancel_scope, client, known_key):
+        """
+        Check metrics to see if state transfer started. If so cancel the
+        concurrent coroutines in the request scope.
+        """
+        with log.start_action(action_type="ss_wait_to_receive_st_msgs", replica=replica.id) as action:
             while True:
                 with trio.move_on_after(.5): # seconds
                     try:

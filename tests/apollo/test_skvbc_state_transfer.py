@@ -63,6 +63,7 @@ class SkvbcStateTransferTest(ApolloTest):
 
     __test__ = False  # so that PyTest ignores this test scenario
 
+    @unittest.skip("Unstable because of BC-5101")
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_state_transfer(self, bft_network,exchange_keys=True):
@@ -93,6 +94,41 @@ class SkvbcStateTransferTest(ApolloTest):
 
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
+    async def test_state_transfer_with_ror(self, bft_network,exchange_keys=True):
+        """
+        Test that state transfer starts and completes.
+        Stop one node, add a bunch of data to the rest of the cluster, restart
+        the node and verify state transfer works as expected. We should be able
+        to stop a different set of f nodes after state transfer completes and
+        still operate correctly.
+        """
+        skvbc = kvbc.SimpleKVBCProtocol(bft_network)
+
+        stale_node = random.choice(
+            bft_network.all_replicas(without={0}))
+
+        client, known_key, known_val = await skvbc.prime_for_state_transfer(
+            stale_nodes={stale_node},
+            checkpoints_num=3, # key-exchange changes the last executed seqnum
+            persistency_enabled=False
+        )
+
+        await skvbc.run_concurrent_ops(4000, write_weight=0)
+
+        bft_network.start_replica(stale_node)
+        print("Stale node: ", stale_node)
+        
+        await bft_network.wait_for_state_transfer_to_start()
+        await bft_network.wait_for_state_transfer_to_stop(0, stale_node)
+
+        await bft_network.wait_for_replicas_rvt_root_values_to_be_in_sync(bft_network.all_replicas())
+        await skvbc.assert_successful_put_get()
+        await bft_network.force_quorum_including_replica(stale_node)
+        await skvbc.assert_successful_put_get()
+
+    @unittest.skip("Unstable because of BC-5101")
+    @with_trio
+    @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_state_transfer_with_multiple_clients(self, bft_network,exchange_keys=True):
         """
         Test that state transfer starts and completes.
@@ -120,6 +156,7 @@ class SkvbcStateTransferTest(ApolloTest):
         await bft_network.force_quorum_including_replica(stale_node)
         await skvbc.assert_successful_put_get()
 
+    @unittest.skip("Unstable because of BC-5101")
     # This test should never run with TLS/TCP, only UDP
     @skip_for_tls
     @with_trio
@@ -164,6 +201,7 @@ class SkvbcStateTransferTest(ApolloTest):
         await bft_network.force_quorum_including_replica(stale_node)
         await skvbc.assert_successful_put_get()
 
+    @unittest.skip("Unstable because of BC-5101")
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_state_transfer_for_two_successive_cycles(self, bft_network,exchange_keys=True):
@@ -208,6 +246,7 @@ class SkvbcStateTransferTest(ApolloTest):
         await bft_network.force_quorum_including_replica(stale_node)
         await skvbc.assert_successful_put_get()
 
+    @unittest.skip("Unstable because of BC-5101")
     @with_trio
     @with_bft_network(start_replica_cmd, rotate_keys=True)
     async def test_state_transfer_rvt_validity(self, bft_network,exchange_keys=True):
@@ -258,6 +297,7 @@ class SkvbcStateTransferTest(ApolloTest):
                         break
 
 
+    @unittest.skip("Unstable because of BC-5101")                    
     @with_trio
     @with_bft_network(start_replica_cmd)
     async def test_state_transfer_rvt_validity_after_pruning(self, bft_network):
@@ -319,6 +359,7 @@ class SkvbcStateTransferTest(ApolloTest):
         await bft_network.wait_for_replicas_rvt_root_values_to_be_in_sync(bft_network.all_replicas())
 
 
+    @unittest.skip("Unstable because of BC-5101")
     @with_trio
     @with_bft_network(start_replica_cmd)
     async def test_state_transfer_rvt_root_validation_after_adding_blocks(self, bft_network):
