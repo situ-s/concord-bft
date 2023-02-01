@@ -77,7 +77,7 @@ std::string KeyExchangeManager::onKeyExchange(const KeyExchangeMsg& kemsg,
                                               const std::string& cid) {
   const auto& sn = kemsg.generated_sn;
   SCOPED_MDC_SEQ_NUM(std::to_string(sn));
-  LOG_INFO(KEY_EX_LOG, kemsg.toString() << KVLOG(sn, cid, exchanged()));
+  LOG_INFO(KEY_EX_LOG, kemsg.toString() << KVLOG(sn, cid, exchanged(), req_sn, candidate_private_keys_.generated.sn));
   // client query
   if (kemsg.op == KeyExchangeMsg::HAS_KEYS) {
     LOG_INFO(KEY_EX_LOG, "Has keys: " << std::boolalpha << exchanged() << std::noboolalpha);
@@ -94,11 +94,22 @@ std::string KeyExchangeManager::onKeyExchange(const KeyExchangeMsg& kemsg,
     LOG_WARN(KEY_EX_LOG, "Generated sequence number is outside working window, ignore..." << KVLOG(sn, req_sn));
     return "gen_seq_num_ouside_workingwindow";
   }
+
+  if (sn != static_cast<uint64_t>(candidate_private_keys_.generated.sn) && kemsg.repID == repID_) {
+    LOG_WARN(KEY_EX_LOG, "ss--no candidate key generated..ignore" << KVLOG(sn));
+    return "no_candidate_key";
+  }
+
   if (publicKeys_.keyExists(kemsg.repID, sn)) return "ok";
   publicKeys_.push(kemsg, sn);
   if (kemsg.repID == repID_) {  // initiated by me
     private_keys_.key_data().generated = candidate_private_keys_.generated;
+    LOG_INFO(KEY_EX_LOG,
+             "SS-- before clear" << KVLOG(
+                 repID_, private_keys_.key_data().generated.pub, private_keys_.key_data().generated.sn));
     candidate_private_keys_.generated.clear();
+    LOG_INFO(KEY_EX_LOG,
+             "SS--crash" << KVLOG(repID_, private_keys_.key_data().generated.pub, kemsg.pubkey, kemsg.generated_sn));
     ConcordAssert(private_keys_.key_data().generated.pub == kemsg.pubkey);
     private_keys_.onKeyExchange(cid, sn);
     for (auto e : registryToExchange_) e->onPrivateKeyExchange(private_keys_.key_data().keys[sn], kemsg.pubkey, sn);
@@ -245,7 +256,18 @@ void KeyExchangeManager::generateConsensusKeyAndSendInternalClientMsg(const SeqN
   }
 
   auto& candidate = candidate_private_keys_.generated;
-  bool generateNewPair = (sn != candidate.sn) || candidate.cid.empty();
+  bool generateNewPair =
+      candidate.cid.empty() ||
+      (sn != candidate.sn && ((sn - private_keys_.lastGeneratedSeqnum()) / checkpointWindowSize) !=
+                                 ((candidate.sn - private_keys_.lastGeneratedSeqnum()) / checkpointWindowSize));
+
+  auto sn_diff = sn - private_keys_.lastGeneratedSeqnum();
+  auto csn_diff = candidate.sn - private_keys_.lastGeneratedSeqnum();
+  auto sn_sz = (sn - private_keys_.lastGeneratedSeqnum()) / checkpointWindowSize;
+  auto csn_sz = (candidate.sn - private_keys_.lastGeneratedSeqnum()) / checkpointWindowSize;
+
+  LOG_INFO(KEY_EX_LOG,
+           "SS--" << KVLOG(generateNewPair, candidate.cid, sn, candidate.sn, sn_diff, csn_diff, sn_sz, csn_sz));
   KeyExchangeMsg msg;
   msg.repID = repID_;
   msg.generated_sn = sn;
@@ -265,7 +287,8 @@ void KeyExchangeManager::generateConsensusKeyAndSendInternalClientMsg(const SeqN
 
   msg.pubkey = candidate.pub;
   msg.algorithm = candidate.algorithm;
-  LOG_INFO(KEY_EX_LOG, "Sending consensus key exchange :" << KVLOG(candidate.cid, msg.pubkey, msg.algorithm));
+  LOG_INFO(KEY_EX_LOG,
+           "Sending consensus key exchange :" << KVLOG(candidate.cid, msg.pubkey, msg.algorithm, candidate.sn));
   client_->sendRequest(bftEngine::KEY_EXCHANGE_FLAG, msg, candidate.cid);
   metrics_->sent_key_exchange_counter++;
 }
