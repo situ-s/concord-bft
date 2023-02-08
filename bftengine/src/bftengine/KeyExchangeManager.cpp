@@ -98,7 +98,15 @@ std::string KeyExchangeManager::onKeyExchange(const KeyExchangeMsg& kemsg,
   publicKeys_.push(kemsg, sn);
   if (kemsg.repID == repID_) {  // initiated by me
     private_keys_.key_data().generated = candidate_private_keys_.generated;
-    candidate_private_keys_.generated.clear();
+    // erasing seqnum from the map
+    auto& values = cand_keys[candidate_private_keys_.generated.cid];
+    values.erase(std::remove(values.begin(), values.end(), sn), values.end());
+    LOG_INFO(KEY_EX_LOG, "SS-- cid and count" << KVLOG(candidate_private_keys_.generated.cid, values.size()));
+    if (values.empty()) {
+      // Erase the key from the map if all values have been removed
+      cand_keys.erase(candidate_private_keys_.generated.cid);
+      candidate_private_keys_.generated.clear();
+    }
     ConcordAssert(private_keys_.key_data().generated.pub == kemsg.pubkey);
     private_keys_.onKeyExchange(cid, sn);
     for (auto e : registryToExchange_) e->onPrivateKeyExchange(private_keys_.key_data().keys[sn], kemsg.pubkey, sn);
@@ -259,8 +267,13 @@ void KeyExchangeManager::generateConsensusKeyAndSendInternalClientMsg(const SeqN
     candidate.pub = pub;
     candidate.cid = cid;
     candidate.sn = sn;
+    cand_keys.emplace(cid, std::vector<SeqNum>(sn));
+    LOG_INFO(KEY_EX_LOG, "Added new candidate" << KVLOG(candidate.cid, sn));
   } else {
-    LOG_INFO(KEY_EX_LOG, "we already have a candidate for this sequence number, trying to send it again");
+    LOG_INFO(
+        KEY_EX_LOG,
+        "we already have a candidate for this sequence number, trying to send it again" << KVLOG(candidate.cid, sn));
+    cand_keys[candidate.cid].push_back(sn);
   }
 
   msg.pubkey = candidate.pub;

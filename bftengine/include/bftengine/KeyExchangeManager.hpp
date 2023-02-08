@@ -219,6 +219,8 @@ class KeyExchangeManager {
   IClientPublicKeyStore* clientPublicKeyStore_{nullptr};
   bool publishedMasterKey = false;
   std::mutex startup_mutex_;
+  // map to store cid and sequence numbers
+  std::map<std::string, std::vector<SeqNum>> cand_keys;
 
   struct Metrics {
     std::chrono::seconds lastMetricsDumpTime;
